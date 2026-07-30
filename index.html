@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LaTeX → Unicode 변환기</title>
+    <meta
+      name="description"
+      content="LaTeX 문법이 섞인 긴 글에서 LaTeX 부분만 유니코드로 변환합니다. 변환 불가 영역은 규칙에 따라 처리하고 리포트로 보여줍니다."
+    />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E∑%3C/text%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="bar">
+      <h1>LaTeX <span class="arrow">→</span> Unicode</h1>
+      <p class="tagline">긴 글에서 LaTeX 부분만 골라 유니코드로 바꿉니다. 나머지 본문은 건드리지 않습니다.</p>
+      <div class="bar-actions">
+        <button id="sample" class="ghost" type="button">예시 넣기</button>
+        <button id="clear" class="ghost" type="button">지우기</button>
+      </div>
+    </header>
+
+    <section class="settings" aria-label="변환 설정">
+      <label>
+        변환 불가 시 기본 처리
+        <select id="policy">
+          <option value="keep">원본 LaTeX 유지 (keep)</option>
+          <option value="flatten">한 줄로 펼치기 (flatten)</option>
+        </select>
+      </label>
+      <label class="check">
+        <input type="checkbox" id="prettyMinus" />
+        수식의 <code>-</code>를 −(U+2212)로
+      </label>
+      <label class="check">
+        <input type="checkbox" id="convertBareCommands" />
+        수식 밖 <code>\명령어</code>도 변환
+      </label>
+      <label class="check">
+        <input type="checkbox" id="textLigatures" />
+        본문의 <code>---</code>, <code>``…''</code>도 변환
+      </label>
+    </section>
+
+    <main>
+      <section class="pane">
+        <div class="pane-head">
+          <h2>입력</h2>
+          <span id="inputStats" class="stat"></span>
+        </div>
+        <textarea
+          id="input"
+          spellcheck="false"
+          placeholder="LaTeX가 섞인 글을 붙여넣으세요.&#10;&#10;예: 학습률은 $\alpha = 10^{-3}$ 이고 손실은 $\mathcal{L}(\theta)$ 입니다."
+        ></textarea>
+      </section>
+
+      <section class="pane">
+        <div class="pane-head">
+          <h2>결과</h2>
+          <span id="outputStats" class="stat"></span>
+          <button id="copy" type="button">복사</button>
+        </div>
+        <div id="output" class="output" aria-live="polite"></div>
+      </section>
+    </main>
+
+    <section class="report" aria-label="변환 리포트">
+      <div class="report-head">
+        <h2>변환 리포트 <span id="issueCount" class="badge">0</span></h2>
+        <div class="report-actions">
+          <button id="flattenAll" class="ghost" type="button">전체 펼치기</button>
+          <button id="resetAll" class="ghost" type="button">개별 설정 초기화</button>
+        </div>
+      </div>
+      <p class="hint">
+        유니코드로 표현할 수 없는 부분입니다. 기본은 원본 유지이며, 항목별로 <b>펼치기</b>를 눌러 한 줄 표기로 바꿀 수 있습니다.
+      </p>
+      <ol id="issues" class="issues"></ol>
+    </section>
+
+    <footer>
+      <p>
+        모든 변환은 브라우저 안에서만 실행되며 입력한 글은 어디에도 전송되지 않습니다.
+        결합 문자(<span class="mono">x̂</span>)나 수학 알파벳(<span class="mono">𝔽 ℝ</span>)은 보는 쪽의 폰트에 따라 다르게 보일 수 있습니다.
+      </p>
+    </footer>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

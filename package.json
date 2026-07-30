@@ -1,0 +1,20 @@
+{
+  "name": "latex2unicode",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Convert only the LaTeX parts of a long mixed document into Unicode, with explicit fallback rules for what Unicode cannot express.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.2",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10",
+    "vitest": "^2.1.4"
+  }
+}
