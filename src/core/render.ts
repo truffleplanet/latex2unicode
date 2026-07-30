@@ -1,5 +1,5 @@
 import type { Node } from './parse.js';
-import type { ConvertOptions, Issue, Piece } from './types.js';
+import type { ConvertOptions, Issue, IssueCode, Piece } from './types.js';
 import { SYMBOLS, LIMIT_OP_TEXT } from './tables/symbols.js';
 import { SUPERSCRIPT, SUBSCRIPT, toScript } from './tables/scripts.js';
 import { toStyled } from './tables/alphabets.js';
@@ -86,7 +86,13 @@ function paren(s: string): string {
  * A construct Unicode cannot express. In flatten mode produce the ASCII form
  * directly; otherwise record an issue and apply the configured policy.
  */
-function fail(node: Node, reason: string, ascii: string, ctx: RenderCtx, path: number[]): Piece[] {
+function fail(
+  node: Node,
+  cause: { code: IssueCode; detail: string; reason: string },
+  ascii: string,
+  ctx: RenderCtx,
+  path: number[],
+): Piece[] {
   if (ctx.flatten) return [{ text: ascii, kind: 'fallback' }];
 
   const id = `s${ctx.segIdx}:${path.join('.')}`;
@@ -97,7 +103,9 @@ function fail(node: Node, reason: string, ascii: string, ctx: RenderCtx, path: n
   if (!ctx.dry) {
     ctx.issues.push({
       id,
-      reason,
+      code: cause.code,
+      detail: cause.detail,
+      reason: cause.reason,
       source: keepPreview,
       line: lineOf(ctx.source, ctx.offset + node.s),
       policy,
@@ -177,7 +185,11 @@ export function renderNode(node: Node, ctx: RenderCtx, path: number[]): Piece[] 
     case 'unknown':
       return fail(
         node,
-        `\\${node.name} is not in the symbol table`,
+        {
+          code: 'unknown-command',
+          detail: `\\${node.name}`,
+          reason: `\\${node.name} is not in the symbol table`,
+        },
         node.name,
         ctx,
         path,
@@ -199,9 +211,14 @@ export function renderNode(node: Node, ctx: RenderCtx, path: number[]): Piece[] 
       const inner = plain(node.body, ctx);
       const styled = inner === null ? null : toStyled(inner, node.cmd);
       if (styled === null) {
+        const target = inner ?? sourceOf(node.body, ctx);
         return fail(
           node,
-          `\\${node.cmd} has no Unicode form for "${inner ?? sourceOf(node.body, ctx)}"`,
+          {
+            code: 'style-alphabet',
+            detail: target,
+            reason: `\\${node.cmd} has no Unicode form for "${target}"`,
+          },
           inner ?? flat(node.body, ctx),
           ctx,
           path,
@@ -237,7 +254,11 @@ function renderScript(
     const range = sub && sup ? `${sub}→${sup}` : sub ? sub : `→${sup}`;
     return fail(
       node,
-      `limits on ${opText} cannot be placed above and below inline`,
+      {
+        code: 'operator-limits',
+        detail: opText,
+        reason: `limits on ${opText} cannot be placed above and below inline`,
+      },
       `${opText}(${range})`,
       ctx,
       path,
@@ -246,7 +267,17 @@ function renderScript(
 
   const baseText = base ? plain(base, ctx) : '';
   if (baseText === null) {
-    return fail(node, 'the base of the script is not convertible', flatScript(node, ctx), ctx, path);
+    return fail(
+      node,
+      {
+        code: 'script-base',
+        detail: sourceOf(base!, ctx),
+        reason: 'the base of the script is not convertible',
+      },
+      flatScript(node, ctx),
+      ctx,
+      path,
+    );
   }
 
   const supSrc = node.sup ? plain(node.sup, ctx) : undefined;
@@ -260,10 +291,17 @@ function renderScript(
     const missing = [...bad].filter(
       (ch) => (sup === null ? SUPERSCRIPT : SUBSCRIPT)[ch] === undefined,
     );
-    const detail = missing.length
+    const detail = missing.length ? missing.join('') : bad;
+    const reason = missing.length
       ? `Unicode has no ${which} form for ${missing.map((c) => `"${c}"`).join(', ')}`
       : `"${bad}" cannot be rendered as a ${which}`;
-    return fail(node, detail, flatScript(node, ctx), ctx, path);
+    return fail(
+      node,
+      { code: sup === null ? 'no-superscript' : 'no-subscript', detail, reason },
+      flatScript(node, ctx),
+      ctx,
+      path,
+    );
   }
 
   return [{ text: baseText + sup + sub, kind: 'math' }];
@@ -281,7 +319,13 @@ function renderFrac(node: Extract<Node, { t: 'frac' }>, ctx: RenderCtx, path: nu
   const den = plain(node.den, ctx);
 
   if (node.style === 'binom') {
-    return fail(node, 'binomial coefficients are two-dimensional', `C(${flat(node.num, ctx)}, ${flat(node.den, ctx)})`, ctx, path);
+    return fail(
+      node,
+      { code: 'binomial', detail: '', reason: 'binomial coefficients are two-dimensional' },
+      `C(${flat(node.num, ctx)}, ${flat(node.den, ctx)})`,
+      ctx,
+      path,
+    );
   }
 
   if (num !== null && den !== null) {
@@ -290,7 +334,17 @@ function renderFrac(node: Extract<Node, { t: 'frac' }>, ctx: RenderCtx, path: nu
   }
 
   const ascii = `${paren(flat(node.num, ctx))}/${paren(flat(node.den, ctx))}`;
-  return fail(node, 'a stacked fraction has no single Unicode character', ascii, ctx, path);
+  return fail(
+    node,
+    {
+      code: 'stacked-fraction',
+      detail: '',
+      reason: 'a stacked fraction has no single Unicode character',
+    },
+    ascii,
+    ctx,
+    path,
+  );
 }
 
 function renderSqrt(node: Extract<Node, { t: 'sqrt' }>, ctx: RenderCtx, path: number[]): Piece[] {
@@ -307,8 +361,16 @@ function renderSqrt(node: Extract<Node, { t: 'sqrt' }>, ctx: RenderCtx, path: nu
     return fail(
       node,
       radical === undefined
-        ? `Unicode only has radical signs for degrees 2, 3 and 4 (got ${index})`
-        : 'the radicand is not convertible',
+        ? {
+            code: 'radical-degree',
+            detail: idx,
+            reason: `Unicode only has radical signs for degrees 2, 3 and 4 (got ${index})`,
+          }
+        : {
+            code: 'radicand',
+            detail: sourceOf(node.body, ctx),
+            reason: 'the radicand is not convertible',
+          },
       ascii,
       ctx,
       path,
@@ -326,8 +388,16 @@ function renderAccent(node: Extract<Node, { t: 'accent' }>, ctx: RenderCtx, path
     return fail(
       node,
       body === null
-        ? 'the accented expression is not convertible'
-        : `a combining ${node.cmd} only attaches to a single character, not "${body}"`,
+        ? {
+            code: 'accent-body',
+            detail: sourceOf(node.body, ctx),
+            reason: 'the accented expression is not convertible',
+          }
+        : {
+            code: 'accent-base',
+            detail: body,
+            reason: `a combining ${node.cmd} only attaches to a single character, not "${body}"`,
+          },
       `${node.cmd}(${flat(node.body, ctx)})`,
       ctx,
       path,
@@ -352,8 +422,20 @@ function renderEnv(node: Extract<Node, { t: 'env' }>, ctx: RenderCtx, path: numb
     ascii = open + cells.map((row) => row.join(', ')).join('; ') + close;
   }
 
-  const shape = LINE_ENVS.has(node.name)
-    ? `${cells.length} aligned lines`
-    : `a ${cells.length}×${Math.max(...cells.map((r) => r.length))} grid`;
-  return fail(node, `${node.name} lays out ${shape}, which is not linear text`, ascii, ctx, path);
+  const lines = LINE_ENVS.has(node.name);
+  const size = lines
+    ? String(cells.length)
+    : `${cells.length}×${Math.max(...cells.map((r) => r.length))}`;
+  const shape = lines ? `${size} aligned lines` : `a ${size} grid`;
+  return fail(
+    node,
+    {
+      code: lines ? 'env-lines' : 'env-grid',
+      detail: size,
+      reason: `${node.name} lays out ${shape}, which is not linear text`,
+    },
+    ascii,
+    ctx,
+    path,
+  );
 }

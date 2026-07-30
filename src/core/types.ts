@@ -31,9 +31,36 @@ export interface Piece {
   issueId?: string;
 }
 
+/**
+ * Why a construct could not be converted. Stable identifiers so a UI can
+ * present its own wording — the core stays language-neutral.
+ */
+export type IssueCode =
+  | 'unknown-command'
+  | 'operator-limits'
+  | 'script-base'
+  | 'no-superscript'
+  | 'no-subscript'
+  | 'stacked-fraction'
+  | 'binomial'
+  | 'radical-degree'
+  | 'radicand'
+  | 'accent-base'
+  | 'accent-body'
+  | 'style-alphabet'
+  | 'env-grid'
+  | 'env-lines';
+
 export interface Issue {
   /** Stable across re-conversions of the same input, so overrides survive. */
   id: string;
+  /** Machine-readable cause, for localised or custom messages. */
+  code: IssueCode;
+  /**
+   * The specific thing that failed — a command name, the characters with no
+   * script form, a grid size. Interpolated into presentation messages.
+   */
+  detail: string;
   /** Human-readable explanation of why Unicode cannot express this. */
   reason: string;
   /** The original LaTeX source of the construct. */

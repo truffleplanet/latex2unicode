@@ -1,5 +1,6 @@
 import { convert } from './core/convert.js';
 import { defaultOptions, type ConvertOptions, type FallbackPolicy, type Issue } from './core/types.js';
+import { describe } from './messages.js';
 import { SAMPLE } from './sample.js';
 
 const $ = <T extends HTMLElement>(id: string): T => {
@@ -13,8 +14,9 @@ const els = {
   output: $<HTMLDivElement>('output'),
   issues: $<HTMLOListElement>('issues'),
   issueCount: $<HTMLSpanElement>('issueCount'),
-  inputStats: $<HTMLSpanElement>('inputStats'),
-  outputStats: $<HTMLSpanElement>('outputStats'),
+  inputStats: $<HTMLParagraphElement>('inputStats'),
+  outputStats: $<HTMLParagraphElement>('outputStats'),
+  live: $<HTMLParagraphElement>('live'),
   policy: $<HTMLSelectElement>('policy'),
   prettyMinus: $<HTMLInputElement>('prettyMinus'),
   convertBareCommands: $<HTMLInputElement>('convertBareCommands'),
@@ -32,6 +34,7 @@ const DRAFT_KEY = 'latex2unicode.draft.v1';
 /** Per-construct choices. Kept in memory only: ids describe one exact input. */
 let overrides: Record<string, FallbackPolicy> = {};
 let lastText = '';
+let lastIssueIds: string[] = [];
 
 function loadSettings(): ConvertOptions {
   const opts = { ...defaultOptions };
@@ -45,7 +48,7 @@ function loadSettings(): ConvertOptions {
   return opts;
 }
 
-let settings = loadSettings();
+const settings = loadSettings();
 
 function saveSettings(): void {
   try {
@@ -75,6 +78,7 @@ function renderOutput(pieces: ReturnType<typeof convert>['pieces']): void {
     els.output.append(hint);
     return;
   }
+
   for (const p of pieces) {
     if (p.kind === 'text') {
       els.output.append(document.createTextNode(p.text));
@@ -83,9 +87,13 @@ function renderOutput(pieces: ReturnType<typeof convert>['pieces']): void {
     const mark = document.createElement('mark');
     mark.className = p.kind === 'fallback' ? 'bad' : 'ok';
     mark.textContent = p.text;
+
     if (p.issueId) {
+      // Keyboard-reachable: these are the jump targets into the report.
       mark.dataset.issue = p.issueId;
-      mark.title = '변환 불가 — 클릭하면 리포트에서 확인할 수 있습니다';
+      mark.tabIndex = 0;
+      mark.setAttribute('role', 'button');
+      mark.setAttribute('aria-label', `변환 불가 항목 ${p.text} — 리포트에서 보기`);
     }
     els.output.append(mark);
   }
@@ -114,7 +122,7 @@ function renderIssues(issues: Issue[]): void {
 
     const line = document.createElement('span');
     line.className = 'line';
-    line.textContent = `L${issue.line}`;
+    line.textContent = `${issue.line}행`;
 
     const body = document.createElement('div');
     body.className = 'body';
@@ -125,7 +133,7 @@ function renderIssues(issues: Issue[]): void {
 
     const why = document.createElement('p');
     why.className = 'why';
-    why.textContent = issue.reason;
+    why.textContent = describe(issue);
 
     const preview = document.createElement('p');
     preview.className = 'preview';
@@ -135,6 +143,9 @@ function renderIssues(issues: Issue[]): void {
 
     const choice = document.createElement('div');
     choice.className = 'choice';
+    choice.setAttribute('role', 'group');
+    choice.setAttribute('aria-label', `${issue.line}행 ${issue.source} 처리 방식`);
+
     for (const [policy, label] of [
       ['keep', '원본 유지'],
       ['flatten', '펼치기'],
@@ -142,11 +153,17 @@ function renderIssues(issues: Issue[]): void {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.textContent = label;
-      btn.className = active === policy ? 'on' : 'ghost';
+      btn.setAttribute('aria-pressed', String(active === policy));
       btn.addEventListener('click', () => {
+        // An override records a deviation from the default, nothing more.
         if (policy === settings.defaultPolicy) delete overrides[issue.id];
         else overrides[issue.id] = policy;
         run();
+        // Keep focus where the user was working.
+        const again = els.issues.querySelector<HTMLElement>(
+          `li[data-issue="${CSS.escape(issue.id)}"] .choice button[aria-pressed="true"]`,
+        );
+        again?.focus();
       });
       choice.append(btn);
     }
@@ -156,7 +173,7 @@ function renderIssues(issues: Issue[]): void {
   }
 }
 
-let lastIssueIds: string[] = [];
+let announce: number | undefined;
 
 function run(): void {
   const source = els.input.value;
@@ -167,10 +184,18 @@ function run(): void {
   renderOutput(result.pieces);
   renderIssues(result.issues);
 
-  els.inputStats.textContent = source ? `${source.length.toLocaleString()}자` : '';
-  els.outputStats.textContent = source
+  els.inputStats.textContent = source ? `${source.length.toLocaleString('ko-KR')}자` : '';
+  const summary = source
     ? `LaTeX 구간 ${result.stats.segments}개 · 변환 불가 ${result.stats.issues}개`
     : '';
+  els.outputStats.textContent = summary;
+
+  // The result pane rewrites itself on every keystroke, so it must not be a
+  // live region. Announce the summary instead, once the typing settles.
+  window.clearTimeout(announce);
+  announce = window.setTimeout(() => {
+    els.live.textContent = summary;
+  }, 700);
 
   try {
     localStorage.setItem(DRAFT_KEY, source);
@@ -179,7 +204,7 @@ function run(): void {
   }
 }
 
-/** Highlight the pair (output span, report row) for one issue. */
+/** Highlight the pair (result mark, report row) for one issue. */
 function focusIssue(id: string): void {
   for (const el of document.querySelectorAll('.focus')) el.classList.remove('focus');
   const row = els.issues.querySelector<HTMLElement>(`li[data-issue="${CSS.escape(id)}"]`);
@@ -187,6 +212,7 @@ function focusIssue(id: string): void {
   row?.classList.add('focus');
   mark?.classList.add('focus');
   row?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  row?.querySelector<HTMLButtonElement>('.choice button')?.focus();
 }
 
 // ── wiring ─────────────────────────────────────────────────────────
@@ -199,8 +225,8 @@ els.input.addEventListener('input', () => {
 
 els.policy.addEventListener('change', () => {
   settings.defaultPolicy = els.policy.value as FallbackPolicy;
-  // Per-item choices describe deviations from the default, so a new default
-  // makes the old deviations meaningless.
+  // Per-item choices are deviations from the default, so a new default makes
+  // the old deviations meaningless.
   overrides = {};
   saveSettings();
   run();
@@ -219,17 +245,26 @@ els.output.addEventListener('click', (e) => {
   if (mark?.dataset.issue) focusIssue(mark.dataset.issue);
 });
 
+els.output.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const mark = (e.target as HTMLElement).closest<HTMLElement>('mark[data-issue]');
+  if (!mark?.dataset.issue) return;
+  e.preventDefault();
+  focusIssue(mark.dataset.issue);
+});
+
 els.copy.addEventListener('click', async () => {
-  const label = els.copy.textContent;
   try {
     await navigator.clipboard.writeText(lastText);
     els.copy.textContent = '복사됨';
+    els.live.textContent = '결과를 클립보드에 복사했습니다.';
   } catch {
     els.copy.textContent = '복사 실패';
+    els.live.textContent = '복사에 실패했습니다. 직접 선택해 복사해 주세요.';
   }
   window.setTimeout(() => {
-    els.copy.textContent = label;
-  }, 1200);
+    els.copy.textContent = '복사';
+  }, 1400);
 });
 
 els.sample.addEventListener('click', () => {
