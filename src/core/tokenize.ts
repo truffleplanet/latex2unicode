@@ -44,7 +44,9 @@ export function tokenize(src: string): Token[] {
       if (LETTER.test(next)) {
         let j = i + 1;
         while (j < src.length && LETTER.test(src[j])) j++;
-        if (src[j] === '*') j++; // \align* style variants
+        // A `*` binds to the command only where a starred variant exists
+        // (`\operatorname*`). Elsewhere it is multiplication: `\sigma*x`.
+        if (src[j] === '*' && src.slice(i + 1, j) === 'operatorname') j++;
         const name = src.slice(i + 1, j);
         out.push({ k: 'cmd', name, s: i, e: j });
         i = j;

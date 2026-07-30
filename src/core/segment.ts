@@ -41,11 +41,11 @@ export const KNOWN_COMMANDS: ReadonlySet<string> = new Set([
   ...STYLE_COMMANDS,
   ...UPRIGHT_COMMANDS,
   ...Object.keys(ACCENTS),
-  'frac', 'dfrac', 'tfrac', 'cfrac', 'binom', 'dbinom', 'tbinom',
+  'frac', 'dfrac', 'tfrac', 'cfrac', 'sfrac', 'binom', 'dbinom', 'tbinom',
   'sqrt', 'root', 'over', 'atop', 'begin', 'end', 'substack',
 ]);
 
-const CMD_RE = /^\\([a-zA-Z]+)\*?/;
+const CMD_RE = /^\\([a-zA-Z]+)/;
 
 /**
  * Heuristic for `$...$`: TeX's inline delimiter collides with currency, which
@@ -56,11 +56,23 @@ export function looksLikeMath(body: string): boolean {
   if (!body || body.length > 400) return false;
   if (/^\s|\s$|\n/.test(body)) return false;          // "$100 and $200"
   if (/[\\^_]/.test(body)) return true;                // TeX machinery present
+  if (/[=<>+±×÷≤≥≠→∞∑∏∫|]$/.test(body)) return false;  // "$100+$200": dangling operator
   if (/[=<>+±×÷≤≥≠→∞∑∏∫|]/.test(body)) return true;    // a relation or operator
   if (/^[A-Za-z](\d)?$/.test(body)) return true;       // $x$, $n$, $y2$
   if (/^[A-Za-z]\s?\([^()]*\)$/.test(body)) return true; // $f(x)$
   if (/^\d+(\.\d+)?$/.test(body)) return true;         // $3$, $2.5$
   return false;
+}
+
+/**
+ * Heuristic for `$$...$$`: display bodies may span lines, so trim before
+ * judging. The same currency collision exists ("It costs $$100 and $$200").
+ */
+export function looksLikeDisplayMath(body: string): boolean {
+  const t = body.trim();
+  if (t === '' || t.length > 2000) return false;
+  if (/[\\^_]/.test(t)) return true;
+  return looksLikeMath(t);
 }
 
 /** True when a bare `\command` outside math should be treated as LaTeX. */
@@ -156,15 +168,26 @@ export function segment(src: string, opts: { convertBareCommands: boolean }): Se
       continue;
     }
 
-    // Inline code span, single line only.
+    // Inline code span, single line only. CommonMark closes a span with a
+    // backtick run of exactly the opening length: `` a ` b `` is one span.
     if (c === '`') {
-      const nl = src.indexOf('\n', i + 1);
-      const close = src.indexOf('`', i + 1);
-      if (close !== -1 && (nl === -1 || close < nl)) {
-        i = close + 1;
+      let run = 1;
+      while (src[i + run] === '`') run++;
+      const nl = src.indexOf('\n', i + run);
+      const limit = nl === -1 ? src.length : nl;
+      let close = -1;
+      for (let j = i + run; j < limit; j++) {
+        if (src[j] !== '`') continue;
+        let k = 1;
+        while (src[j + k] === '`') k++;
+        if (k === run) { close = j; break; }
+        j += k - 1;
+      }
+      if (close !== -1) {
+        i = close + run;
         continue;
       }
-      i++;
+      i += run;
       continue;
     }
 
@@ -234,10 +257,17 @@ export function segment(src: string, opts: { convertBareCommands: boolean }): Se
     }
 
     if (c === '$') {
-      // $$ ... $$
+      // $$ ... $$ — the scan honours escapes and never crosses a paragraph
+      // break or a code fence, so an unpaired $$ cannot eat the document.
       if (src[i + 1] === '$') {
-        const close = src.indexOf('$$', i + 2);
-        if (close !== -1) {
+        let close = -1;
+        for (let j = i + 2; j < src.length; j++) {
+          if (src[j] === '\\') { j++; continue; }
+          if (src.startsWith('```', j)) break;
+          if (src[j] === '\n' && src[j + 1] === '\n') break;
+          if (src[j] === '$' && src[j + 1] === '$') { close = j; break; }
+        }
+        if (close !== -1 && looksLikeDisplayMath(src.slice(i + 2, close))) {
           pushMath(i, close + 2, i + 2, close, true);
           continue;
         }
@@ -252,7 +282,12 @@ export function segment(src: string, opts: { convertBareCommands: boolean }): Se
         if (src[j] === '\\') { j++; continue; }
         if (src[j] === '$') { close = j; break; }
       }
-      if (close !== -1 && looksLikeMath(src.slice(i + 1, close))) {
+      // `$5|$6` in a table: a digit right after the closing $ reads as money.
+      if (
+        close !== -1 &&
+        looksLikeMath(src.slice(i + 1, close)) &&
+        !/\d/.test(src[close + 1] ?? '')
+      ) {
         pushMath(i, close + 1, i + 1, close, false);
         continue;
       }

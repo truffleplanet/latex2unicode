@@ -19,6 +19,13 @@ export interface RenderCtx {
   dry: boolean;
   /** Produce ASCII linearizations instead of consulting the fallback policy. */
   flatten: boolean;
+  /** Text-mode content (`\text{...}`, prose commands): no −/′ substitution. */
+  textMode: boolean;
+  /** Per-node cache for {@link plain}/{@link flat} — they recurse into the
+   *  same subtrees repeatedly, which is exponential on nested constructs. */
+  memo: WeakMap<object, Record<string, string | null>>;
+  /** Offsets of line starts in `source`, for issue line numbers. */
+  lines: number[];
 }
 
 const ENV_BRACKETS: Record<string, [string, string]> = {
@@ -41,10 +48,19 @@ const LINE_ENVS = new Set([
   'multline', 'eqnarray', 'split', 'equation', 'displaymath', 'math', 'subarray',
 ]);
 
-function lineOf(source: string, offset: number): number {
-  let line = 1;
-  for (let i = 0; i < offset && i < source.length; i++) if (source[i] === '\n') line++;
-  return line;
+/** Style commands whose contents are prose, not math (`\textbf{don't}`). */
+const TEXT_STYLE_COMMANDS = new Set(['textbf', 'textit', 'textsf', 'texttt', 'emph']);
+
+function lineOf(ctx: RenderCtx, offset: number): number {
+  const lines = ctx.lines;
+  let lo = 0;
+  let hi = lines.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (lines[mid] <= offset) lo = mid;
+    else hi = mid - 1;
+  }
+  return lo + 1;
 }
 
 /** Text of a node exactly as the author wrote it. */
@@ -56,28 +72,60 @@ function child(ctx: RenderCtx, patch: Partial<RenderCtx>): RenderCtx {
   return { ...ctx, ...patch };
 }
 
+function cached(
+  ctx: RenderCtx,
+  node: object,
+  key: string,
+  compute: () => string | null,
+): string | null {
+  let rec = ctx.memo.get(node);
+  if (!rec) {
+    rec = {};
+    ctx.memo.set(node, rec);
+  }
+  if (key in rec) return rec[key];
+  const value = compute();
+  rec[key] = value;
+  return value;
+}
+
 /** Render to a plain string, or null if anything inside needs a fallback. */
 function plain(node: Node | Node[] | undefined, ctx: RenderCtx): string | null {
   if (node === undefined) return null;
-  const dry = child(ctx, { dry: true, issues: [] });
-  const pieces = Array.isArray(node) ? renderNodes(node, dry, []) : renderNode(node, dry, []);
-  if (pieces.some((p) => p.kind === 'fallback')) return null;
-  return pieces.map((p) => p.text).join('');
+  return cached(ctx, node, ctx.textMode ? 'plain:t' : 'plain:m', () => {
+    const dry = child(ctx, { dry: true, flatten: false, issues: [] });
+    const pieces = Array.isArray(node) ? renderNodes(node, dry, []) : renderNode(node, dry, []);
+    if (pieces.some((p) => p.kind === 'fallback')) return null;
+    return pieces.map((p) => p.text).join('');
+  });
 }
 
 /** Render to an ASCII-ish linearization; always succeeds. */
 function flat(node: Node | Node[] | undefined, ctx: RenderCtx): string {
   if (node === undefined) return '';
-  const f = child(ctx, { dry: true, flatten: true, issues: [] });
-  const pieces = Array.isArray(node) ? renderNodes(node, f, []) : renderNode(node, f, []);
-  return pieces.map((p) => p.text).join('');
+  return cached(ctx, node, ctx.textMode ? 'flat:t' : 'flat:m', () => {
+    const f = child(ctx, { dry: true, flatten: true, issues: [] });
+    const pieces = Array.isArray(node) ? renderNodes(node, f, []) : renderNode(node, f, []);
+    return pieces.map((p) => p.text).join('');
+  }) as string;
+}
+
+/** True when `s` is a single balanced `open…close` pair, e.g. "(a+b)". */
+function wrappedOnce(s: string, open: string, close: string): boolean {
+  if (s[0] !== open || s[s.length - 1] !== close) return false;
+  let depth = 0;
+  for (let i = 0; i < s.length; i++) {
+    if (s[i] === open) depth++;
+    else if (s[i] === close && --depth === 0) return i === s.length - 1;
+  }
+  return false;
 }
 
 /** Wrap in parentheses unless the expression already reads as one unit. */
 function paren(s: string): string {
   if ([...s].length <= 1) return s;
   if (/^\d+(\.\d+)?$/.test(s)) return s;              // a single number: ∛27
-  if (/^\(.*\)$/.test(s) || /^\[.*\]$/.test(s)) return s;
+  if (wrappedOnce(s, '(', ')') || wrappedOnce(s, '[', ']')) return s;
   if (/^\|[^|]*\|$/.test(s) || /^‖[^‖]*‖$/.test(s)) return s;
   return `(${s})`;
 }
@@ -107,7 +155,7 @@ function fail(
       detail: cause.detail,
       reason: cause.reason,
       source: keepPreview,
-      line: lineOf(ctx.source, ctx.offset + node.s),
+      line: lineOf(ctx, ctx.offset + node.s),
       policy,
       keepPreview,
       flattenPreview: ascii,
@@ -159,8 +207,11 @@ export function renderNode(node: Node, ctx: RenderCtx, path: number[]): Piece[] 
   switch (node.t) {
     case 'chars': {
       let text = node.text;
-      if (ctx.opts.prettyMinus) text = text.replace(/-/g, '−');
-      text = text.replace(/''/g, '″').replace(/'/g, '′');
+      // Math-mode typography only; \text{don't} keeps its apostrophe.
+      if (!ctx.textMode) {
+        if (ctx.opts.prettyMinus) text = text.replace(/-/g, '−');
+        text = text.replace(/''/g, '″').replace(/'/g, '′');
+      }
       return [{ text, kind: 'math' }];
     }
 
@@ -182,7 +233,10 @@ export function renderNode(node: Node, ctx: RenderCtx, path: number[]): Piece[] 
     case 'group':
       return renderNodes(node.body, ctx, path);
 
-    case 'unknown':
+    case 'unknown': {
+      const args = node.args.length
+        ? `(${node.args.map((a) => flat(a, ctx)).join(', ')})`
+        : '';
       return fail(
         node,
         {
@@ -190,10 +244,11 @@ export function renderNode(node: Node, ctx: RenderCtx, path: number[]): Piece[] 
           detail: `\\${node.name}`,
           reason: `\\${node.name} is not in the symbol table`,
         },
-        node.name,
+        node.name + args,
         ctx,
         path,
       );
+    }
 
     case 'script':
       return renderScript(node, ctx, path);
@@ -208,7 +263,8 @@ export function renderNode(node: Node, ctx: RenderCtx, path: number[]): Piece[] 
       return renderAccent(node, ctx, path);
 
     case 'style': {
-      const inner = plain(node.body, ctx);
+      // \textbf{...} carries prose; \mathbf{...} carries math.
+      const inner = plain(node.body, TEXT_STYLE_COMMANDS.has(node.cmd) ? child(ctx, { textMode: true }) : ctx);
       const styled = inner === null ? null : toStyled(inner, node.cmd);
       if (styled === null) {
         const target = inner ?? sourceOf(node.body, ctx);
@@ -227,11 +283,9 @@ export function renderNode(node: Node, ctx: RenderCtx, path: number[]): Piece[] 
       return [{ text: styled, kind: 'math' }];
     }
 
-    case 'upright': {
+    case 'upright':
       // \text{...} / \mathrm{...}: contents already are the plain form.
-      const pieces = renderNodes([node.body], ctx, path);
-      return pieces.map((p) => (p.kind === 'math' ? { ...p, text: p.text.replace(/−/g, '-') } : p));
-    }
+      return renderNodes([node.body], child(ctx, { textMode: true }), path);
 
     case 'env':
       return renderEnv(node, ctx, path);
@@ -246,9 +300,19 @@ function renderScript(
   const base = node.base;
 
   // Big operators and limit words put their arguments above and below the
-  // symbol. There is no inline Unicode equivalent, so this always falls back.
+  // symbol. When every character has a script form, set them inline: ∑ᵢ₌₁ⁿ.
   if (base && base.t === 'op') {
     const opText = LIMIT_OP_TEXT[base.name] ?? SYMBOLS[base.name] ?? base.name;
+    const supPlain = node.sup ? plain(node.sup, ctx) : undefined;
+    const subPlain = node.sub ? plain(node.sub, ctx) : undefined;
+    const supScript =
+      supPlain === undefined ? '' : supPlain === null ? null : toScript(supPlain, SUPERSCRIPT);
+    const subScript =
+      subPlain === undefined ? '' : subPlain === null ? null : toScript(subPlain, SUBSCRIPT);
+    if (supScript !== null && subScript !== null && !LIMIT_OP_TEXT[base.name]) {
+      return [{ text: opText + subScript + supScript, kind: 'math' }];
+    }
+
     const sub = flat(node.sub, ctx);
     const sup = flat(node.sup, ctx);
     const range = sub && sup ? `${sub}→${sup}` : sub ? sub : `→${sup}`;
@@ -304,7 +368,8 @@ function renderScript(
     );
   }
 
-  return [{ text: baseText + sup + sub, kind: 'math' }];
+  // Subscript before superscript, matching how x₁² is read.
+  return [{ text: baseText + sub + sup, kind: 'math' }];
 }
 
 function flatScript(node: Extract<Node, { t: 'script' }>, ctx: RenderCtx): string {
@@ -407,7 +472,9 @@ function renderAccent(node: Extract<Node, { t: 'accent' }>, ctx: RenderCtx, path
 }
 
 function renderEnv(node: Extract<Node, { t: 'env' }>, ctx: RenderCtx, path: number[]): Piece[] {
-  const single = node.rows.length === 1 && node.rows[0].length === 1 && LINE_ENVS.has(node.name);
+  // `align*` lays out exactly like `align`; the star only drops numbering.
+  const envName = node.name.replace(/\*$/, '');
+  const single = node.rows.length === 1 && node.rows[0].length === 1 && LINE_ENVS.has(envName);
 
   // A one-line align/equation is just math in a wrapper — no layout is lost.
   if (single) return renderNodes(node.rows[0][0], ctx, path);
@@ -415,14 +482,14 @@ function renderEnv(node: Extract<Node, { t: 'env' }>, ctx: RenderCtx, path: numb
   const cells = node.rows.map((row) => row.map((cell) => flat(cell, ctx).trim()));
 
   let ascii: string;
-  if (LINE_ENVS.has(node.name)) {
+  if (LINE_ENVS.has(envName)) {
     ascii = cells.map((row) => row.join(' ').trim()).filter((l) => l !== '').join('\n');
   } else {
-    const [open, close] = ENV_BRACKETS[node.name] ?? ['(', ')'];
+    const [open, close] = ENV_BRACKETS[envName] ?? ['(', ')'];
     ascii = open + cells.map((row) => row.join(', ')).join('; ') + close;
   }
 
-  const lines = LINE_ENVS.has(node.name);
+  const lines = LINE_ENVS.has(envName);
   const size = lines
     ? String(cells.length)
     : `${cells.length}×${Math.max(...cells.map((r) => r.length))}`;
