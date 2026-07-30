@@ -186,7 +186,13 @@ convert(doc, { overrides: { [issues[0].id]: 'flatten' } });
 ## 배포
 
 `main`에 푸시하면 `.github/workflows/deploy.yml`이 GitHub Pages로 배포합니다.
-저장소 **Settings → Pages → Source**를 **GitHub Actions**로 한 번 설정해 주세요.
+
+**최초 1회만 수동 설정이 필요합니다** — 저장소 **Settings → Pages → Source**를
+**GitHub Actions**로 바꿔주세요. 이걸 워크플로가 대신 할 수는 없습니다:
+Pages 사이트 *생성*은 저장소 관리자 권한이 필요하고, 워크플로의 `GITHUB_TOKEN`이 가진
+`pages: write`는 이미 존재하는 사이트에 *배포*하는 권한까지만 커버합니다
+(`enablement: true`를 주면 `Resource not accessible by integration`으로 실패).
+설정 후에는 Actions 탭에서 실패한 실행을 **Re-run**하면 됩니다.
 
 프로젝트 사이트는 `/<repo>/` 경로에서 서비스되므로 빌드 시 `BASE_PATH`가 주입됩니다.
 커스텀 도메인이나 사용자 사이트에서는 `BASE_PATH=/ npm run build`로 빌드하세요.
