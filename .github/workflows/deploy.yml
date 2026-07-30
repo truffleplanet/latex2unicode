@@ -32,6 +32,10 @@ jobs:
           # Project sites are served from /<repo>/.
           BASE_PATH: /${{ github.event.repository.name }}/
       - uses: actions/configure-pages@v5
+        with:
+          # Provision the Pages site on the first run instead of requiring
+          # someone to flip Settings -> Pages -> Source to GitHub Actions.
+          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
