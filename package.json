@@ -1,21 +1,34 @@
 {
   "name": "latex2unicode",
-  "private": true,
   "version": "0.1.0",
   "type": "module",
   "description": "Convert only the LaTeX parts of a long mixed document into Unicode, with explicit fallback rules for what Unicode cannot express.",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
   "scripts": {
-    "dev": "vite",
-    "build": "tsc --noEmit && vite build",
-    "preview": "vite preview",
+    "build": "vite build && tsc --project tsconfig.build.json",
     "test": "vitest run",
-    "test:watch": "vitest",
-    "font": "node scripts/collect-glyphs.mjs && ./scripts/subset-font.sh"
+    "test:watch": "vitest"
   },
   "devDependencies": {
     "@types/node": "^26.1.2",
     "typescript": "^5.6.3",
-    "vite": "^5.4.10",
-    "vitest": "^2.1.4"
+    "vite": "^8.2.0",
+    "vitest": "^4.1.10"
+  },
+  "allowScripts": {
+    "esbuild@0.21.5": true,
+    "fsevents@2.3.3": true
   }
 }
