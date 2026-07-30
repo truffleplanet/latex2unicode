@@ -12,6 +12,7 @@ node_modules/
 # Production & Build outputs
 dist/
 dist-ssr/
+site/
 *.tsbuildinfo
 
 # Cache & Temp
