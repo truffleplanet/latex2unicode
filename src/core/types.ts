@@ -1,7 +1,15 @@
 /** What to do with a construct Unicode cannot express. */
 export type FallbackPolicy = 'keep' | 'flatten';
 
+/**
+ * Which notation the input is written in. Chosen explicitly, never guessed:
+ * misreading prose as notation corrupts the document silently.
+ */
+export type Mode = 'latex';
+
 export interface ConvertOptions {
+  /** The notation to read. */
+  mode: Mode;
   /** Applied to every unconvertible construct that has no explicit override. */
   defaultPolicy: FallbackPolicy;
   /** Per-construct overrides, keyed by the stable issue id. */
@@ -15,6 +23,7 @@ export interface ConvertOptions {
 }
 
 export const defaultOptions: ConvertOptions = {
+  mode: 'latex',
   defaultPolicy: 'keep',
   overrides: {},
   prettyMinus: true,

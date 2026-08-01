@@ -1,6 +1,6 @@
 export { convert, toUnicode } from './core/convert.js';
-export { segment } from './core/segment.js';
-export { parse } from './core/parse.js';
-export { tokenize } from './core/tokenize.js';
+export { segment, parse, tokenize, latexFrontend } from './core/latex/index.js';
 export { renderNodes } from './core/render.js';
+export type { Node } from './core/node.js';
+export type { Frontend, Segment } from './core/frontend.js';
 export * from './core/types.js';

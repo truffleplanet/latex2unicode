@@ -1,4 +1,4 @@
-import { STARRED_COMMANDS } from './tables/symbols.js';
+import { STARRED_COMMANDS } from '../tables/symbols.js';
 
 export type Token =
   | { k: 'cmd'; name: string; s: number; e: number }

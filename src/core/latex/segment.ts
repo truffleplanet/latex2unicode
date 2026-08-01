@@ -1,27 +1,10 @@
 import {
   SYMBOLS, FUNCTIONS, LIMIT_OPS, IGNORED_COMMANDS, DISCARD_ARG_COMMANDS, STARRED_COMMANDS,
-} from './tables/symbols.js';
-import { STYLE_COMMANDS, UPRIGHT_COMMANDS } from './tables/alphabets.js';
-import { ACCENTS } from './tables/accents.js';
-
-export interface Segment {
-  kind: 'text' | 'math';
-  /** Original text including any delimiters. */
-  raw: string;
-  /** LaTeX to convert (delimiters stripped, environments kept intact). */
-  body: string;
-  /** Offset of `raw` in the source. */
-  start: number;
-  /** Offset of `body` in the source. */
-  bodyStart: number;
-  /** Display math (`$$`, `\[`, `equation`) vs inline. */
-  display: boolean;
-  /**
-   * `math` for delimited math, `text` for a bare command found in prose.
-   * Text mode keeps prose typography rules (no minus-sign substitution).
-   */
-  texMode: 'math' | 'text';
-}
+} from '../tables/symbols.js';
+import { STYLE_COMMANDS, UPRIGHT_COMMANDS } from '../tables/alphabets.js';
+import { ACCENTS } from '../tables/accents.js';
+import type { Segment } from '../frontend.js';
+import { backtickRun, skipFence, skipInlineCode } from '../text/code.js';
 
 /** Environments whose contents are math. */
 const MATH_ENVS = new Set([
@@ -168,31 +151,14 @@ export function segment(src: string, opts: { convertBareCommands: boolean }): Se
 
     // Fenced code block — prose, verbatim.
     if (src.startsWith('```', i)) {
-      const close = src.indexOf('```', i + 3);
-      i = close === -1 ? src.length : close + 3;
+      i = skipFence(src, i);
       continue;
     }
 
-    // Inline code span, single line only. CommonMark closes a span with a
-    // backtick run of exactly the opening length: `` a ` b `` is one span.
+    // Inline code span, single line only.
     if (c === '`') {
-      let run = 1;
-      while (src[i + run] === '`') run++;
-      const nl = src.indexOf('\n', i + run);
-      const limit = nl === -1 ? src.length : nl;
-      let close = -1;
-      for (let j = i + run; j < limit; j++) {
-        if (src[j] !== '`') continue;
-        let k = 1;
-        while (src[j + k] === '`') k++;
-        if (k === run) { close = j; break; }
-        j += k - 1;
-      }
-      if (close !== -1) {
-        i = close + run;
-        continue;
-      }
-      i += run;
+      const close = skipInlineCode(src, i);
+      i = close === -1 ? i + backtickRun(src, i) : close;
       continue;
     }
 

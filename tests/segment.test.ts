@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { segment, looksLikeMath } from '../src/core/segment.js';
+import { segment, looksLikeMath } from '../src/core/latex/segment.js';
 
 const seg = (s: string) => segment(s, { convertBareCommands: true });
 const mathBodies = (s: string) => seg(s).filter((x) => x.kind === 'math').map((x) => x.body);
