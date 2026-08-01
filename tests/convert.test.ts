@@ -52,7 +52,16 @@ describe('scripts', () => {
     expect(u('$x^2$')).toBe('x²');
     expect(u('$H_2O$')).toBe('H₂O');
     expect(u('$x^{n+1}$')).toBe('xⁿ⁺¹');
-    expect(u('$a_i^2$')).toBe('a²ᵢ');
+    // Subscript before superscript, as x₁² is read — whatever the source order.
+    expect(u('$a_i^2$')).toBe('aᵢ²');
+    expect(u('$a^2_i$')).toBe('aᵢ²');
+    expect(u('$SO_4^{2-}$')).toBe('SO₄²⁻');
+  });
+
+  it('ignores whitespace before ^ and _, as TeX does', () => {
+    expect(u('$x ^2$')).toBe('x²');
+    expect(u('$(x+y) ^2$')).toBe('(x+y)²');
+    expect(u('$a _1$')).toBe('a₁');
   });
 
   it('falls back where Unicode has no glyph', () => {
@@ -125,11 +134,19 @@ describe('limit operators', () => {
     expect(u('$\\sum x$')).toBe('∑ x');
   });
 
-  it('falls back when limits are attached', () => {
-    expect(u('$\\sum_{i=1}^{n} i$')).toBe('\\sum_{i=1}^{n} i');
-    expect(flat('$\\sum_{i=1}^{n} i$')).toBe('∑(i=1→n) i');
-    expect(flat('$\\int_a^b f$')).toBe('∫(a→b) f');
+  it('sets fully-scriptable limits inline on glyph operators', () => {
+    expect(u('$\\sum_{i=1}^{n} i$')).toBe('∑ᵢ₌₁ⁿ i');
+    expect(u('$\\int_a^b f$')).toBe('∫ₐᵇ f');
+    expect(convert('$\\sum_{i=1}^{n} i$').issues).toHaveLength(0);
+    // ∞ has no superscript form — this one still falls back.
+    expect(flat('$\\int_0^\\infty$')).toBe('∫(0→∞)');
+  });
+
+  it('falls back when a limit has no script form', () => {
+    expect(u('$\\lim_{x \\to 0} f$')).toBe('\\lim_{x \\to 0} f');
     expect(flat('$\\lim_{x \\to 0} f$')).toBe('lim(x → 0) f');
+    expect(flat('$\\sum_{k \\in S}$')).toBe('∑(k ∈ S)');
+    expect(flat('$\\max_{x \\in D} f$')).toBe('max(x ∈ D) f');
   });
 });
 
@@ -193,7 +210,7 @@ describe('the documented fallback table', () => {
   // Every row of the table in README.md, kept honest.
   const rows: Array<[string, string, string]> = [
     ['$\\frac{a+b}{c}$', '\\frac{a+b}{c}', '(a+b)/c'],
-    ['$\\sum_{i=1}^{n}$', '\\sum_{i=1}^{n}', '∑(i=1→n)'],
+    ['$\\sum_{k \\in S}$', '\\sum_{k \\in S}', '∑(k ∈ S)'],
     ['$\\lim_{t \\to \\infty}$', '\\lim_{t \\to \\infty}', 'lim(t → ∞)'],
     ['$a_b$', 'a_b', 'a_b'],
     ['$\\hat{xy}$', '\\hat{xy}', 'hat(xy)'],
@@ -213,6 +230,162 @@ describe('the documented fallback table', () => {
   it.each(rows)('%s', (src, keep, flatten) => {
     expect(u(src)).toBe(keep);
     expect(flat(src)).toBe(flatten);
+  });
+});
+
+describe('math-mode vs text-mode typography', () => {
+  it('keeps apostrophes in text content', () => {
+    expect(u("$\\text{don't}$")).toBe("don't");
+    expect(u("We say \\textbf{don't} here.")).toBe('We say 𝐝𝐨𝐧\u0027𝐭 here.');
+    expect(u("\\(f'\\)")).toBe('f′'); // math prime still applies
+  });
+
+  it('keeps hyphens in text content', () => {
+    expect(u('$\\textbf{well-known}$')).toBe('𝐰𝐞𝐥𝐥-𝐤𝐧𝐨𝐰𝐧');
+    expect(u('$\\text{a - b}$')).toBe('a - b');
+    expect(u('$\\mathbf{a-b}$')).toBe('𝐚−𝐛'); // math mode keeps the minus
+  });
+});
+
+describe('regressions: segmentation', () => {
+  it('leaves currency joined by an operator alone', () => {
+    expect(u('Total: $100+$200 today.')).toBe('Total: $100+$200 today.');
+    expect(u('가격이 $100=$200 이다')).toBe('가격이 $100=$200 이다');
+  });
+
+  it('leaves compact currency tables alone', () => {
+    expect(u('|$5|$6|')).toBe('|$5|$6|');
+  });
+
+  it('applies a plausibility check to $$ bodies', () => {
+    expect(u('It costs $$100 now and $$200 later.')).toBe('It costs $$100 now and $$200 later.');
+    expect(u('$$a+b$$')).toBe('a + b'.replace(' + ', '+'));
+    expect(u('$$ E = mc^2 $$')).toBe('E = mc²');
+  });
+
+  it('never lets $$ cross a paragraph break or a code fence', () => {
+    expect(u('Stray $$ here.\n\n$$x^2$$')).toBe('Stray $$ here.\n\nx²');
+    // Windows line endings and trailing spaces still read as a blank line.
+    const crlf = 'Stray $$ here.\r\n\r\n노트: x^2 = y 입니다 $$ 끝';
+    expect(u(crlf)).toBe(crlf);
+    const padded = 'Stray $$ here.\n   \n노트: x^2 = y 입니다 $$ 끝';
+    expect(u(padded)).toBe(padded);
+    const fenced = 'Stray $$ here.\n```\nExample: $$E=mc^2$$\n```\nafter';
+    expect(u(fenced)).toBe(fenced);
+  });
+
+  it('honours escaped \\$ inside $$', () => {
+    expect(u('so $$x = \\$$$ done')).toBe('so x = $ done');
+  });
+
+  it('protects double-backtick code spans', () => {
+    expect(u('use ``$x^2$`` here')).toBe('use ``$x^2$`` here');
+    expect(u('run ``a `$x^2$` b`` now')).toBe('run ``a `$x^2$` b`` now');
+  });
+
+  it('does not eat a prose asterisk after a bare command', () => {
+    expect(u('the \\alpha* note')).toBe('the α* note');
+  });
+
+  it('converts a starred operator name found in prose', () => {
+    expect(u('we use \\operatorname*{argmax} here')).toBe('we use argmax here');
+  });
+});
+
+describe('regressions: parsing and rendering', () => {
+  it('keeps multiplication asterisks after commands', () => {
+    expect(u('$y = \\sigma*x$')).toBe('y = σ*x');
+  });
+
+  it('renders \\left. and \\right. as nothing', () => {
+    expect(flat('$\\left. \\frac{dy}{dx} \\right|_0$')).toBe('(dy)/(dx) |₀');
+    // The dot itself vanishes; authored spacing around it is preserved.
+    expect(u('$\\left. x \\right| = y$')).toBe('x | = y');
+    expect(u('$\\left.\\frac{1}{2}\\right|$')).toBe('½|');
+  });
+
+  it('skips a stray top-level } instead of truncating', () => {
+    expect(u('$x^2}y+z$')).toBe('x²y+z');
+  });
+
+  it('treats starred line environments like their unstarred forms', () => {
+    expect(flat('\\begin{align*} a &= b \\\\ c &= d \\end{align*}')).toBe('a = b\nc = d');
+    expect(u('\\begin{equation*} x^2 \\end{equation*}')).toBe('x²');
+  });
+
+  it('keeps unknown commands verbatim including their arguments', () => {
+    expect(u('$\\overset{a}{=}$')).toBe('\\overset{a}{=}');
+    expect(u('$A \\xrightarrow{f} B$')).toBe('A \\xrightarrow{f} B');
+    expect(flat('$\\overset{a}{=}$')).toBe('overset(a, =)');
+    const { issues } = convert('$\\overset{a}{=}$');
+    expect(issues[0].source).toBe('\\overset{a}{=}');
+  });
+
+  it('parenthesizes products under radicals and in flattened fractions', () => {
+    expect(u('$\\sqrt{(a+b)(c+d)}$')).toBe('√((a+b)(c+d))');
+    expect(flat('$\\frac{(a+b)(c+d)}{2}$')).toBe('((a+b)(c+d))/2');
+    expect(u('$\\sqrt{f(x)}$')).toBe('√(f(x))');
+  });
+
+  it('maps the dotted-equality and eqsim relations correctly', () => {
+    expect(u('$a \\risingdotseq b$')).toBe('a ≓ b');
+    expect(u('$a \\fallingdotseq b$')).toBe('a ≒ b');
+    expect(u('$a \\eqsim b$')).toBe('a ≂ b');
+  });
+
+  it('supports \\sfrac like \\frac', () => {
+    expect(u('$\\sfrac{1}{2}$')).toBe('½');
+    expect(flat('$\\sfrac{a}{b}$')).toBe('a/b');
+  });
+});
+
+describe('robustness', () => {
+  it('does not throw on thousands of nested groups', () => {
+    const deep = '\\(' + '{'.repeat(3000) + 'x' + '}'.repeat(3000) + '\\)';
+    expect(() => convert(deep)).not.toThrow();
+  });
+
+  it('converts deeply nested fractions in linear time', () => {
+    let s = 'x+y';
+    for (let i = 0; i < 40; i++) s = `\\frac{${s}}{z}`;
+    const start = performance.now();
+    convert('$' + s + '$');
+    expect(performance.now() - start).toBeLessThan(1000);
+  });
+
+  it('converts a large mixed document quickly', () => {
+    const para =
+      '이 절에서는 $x^2 + y^2 = r^2$ 을 사용한다. The value $\\alpha$ satisfies $a_b$, 비용은 $100 이다. ';
+    const doc = para.repeat(2000); // ~200k chars
+    const start = performance.now();
+    const r = convert(doc);
+    expect(performance.now() - start).toBeLessThan(2000);
+    expect(r.pieces.map((p) => p.text).join('')).toBe(r.text);
+  });
+});
+
+describe('issue codes', () => {
+  // Every IssueCode, pinned to a minimal input that produces it.
+  const cases: Array<[string, string]> = [
+    ['$\\foobar$', 'unknown-command'],
+    ['$\\sum_{k \\in S}$', 'operator-limits'],
+    ['$\\foobar^2$', 'script-base'],
+    ['$x^q$', 'no-superscript'],
+    ['$a_b$', 'no-subscript'],
+    ['$\\frac{a+b}{c}$', 'stacked-fraction'],
+    ['$\\binom{n}{k}$', 'binomial'],
+    ['$\\sqrt[5]{x}$', 'radical-degree'],
+    ['$\\sqrt{\\frac{a}{b}}$', 'radicand'],
+    ['$\\hat{xy}$', 'accent-base'],
+    ['$\\hat{\\frac{a}{b}}$', 'accent-body'],
+    ['$\\mathit{123}$', 'style-alphabet'],
+    ['$\\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix}$', 'env-grid'],
+    ['\\begin{align} a &= b \\\\ c &= d \\end{align}', 'env-lines'],
+  ];
+
+  it.each(cases)('%s → %s', (src, code) => {
+    const { issues } = convert(src);
+    expect(issues.map((i) => i.code)).toContain(code);
   });
 });
 

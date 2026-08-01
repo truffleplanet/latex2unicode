@@ -22,6 +22,10 @@ export function convert(source: string, options: Partial<ConvertOptions> = {}): 
   let mathSegments = 0;
   let convertedChars = 0;
 
+  // Line starts, computed once — issues look their line number up here.
+  const lines: number[] = [0];
+  for (let i = 0; i < source.length; i++) if (source[i] === '\n') lines.push(i + 1);
+
   segments.forEach((seg, segIdx) => {
     if (seg.kind === 'text') {
       pieces.push({ text: opts.textLigatures ? textLigatures(seg.body) : seg.body, kind: 'text' });
@@ -33,14 +37,24 @@ export function convert(source: string, options: Partial<ConvertOptions> = {}): 
       source,
       offset: seg.bodyStart,
       segIdx,
-      // Minus-sign substitution is a math-mode convention only.
-      opts: seg.texMode === 'text' ? { ...opts, prettyMinus: false } : opts,
+      opts,
       issues,
       dry: false,
       flatten: false,
+      // −/′ substitution is a math-mode convention only.
+      textMode: seg.texMode === 'text',
+      memo: new WeakMap(),
+      lines,
     };
 
-    const rendered = renderNodes(parse(seg.body), ctx, []);
+    let rendered: Piece[];
+    try {
+      rendered = renderNodes(parse(seg.body), ctx, []);
+    } catch {
+      // Pathological input (thousands of nested groups) must never throw.
+      pieces.push({ text: seg.raw, kind: 'text' });
+      return;
+    }
     if (rendered.every((p) => p.text === '')) {
       // Nothing came out — safer to leave the original than to delete it.
       pieces.push({ text: seg.raw, kind: 'text' });

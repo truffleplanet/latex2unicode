@@ -51,7 +51,8 @@ const ALIASES: Record<string, string> = {
   textbf: 'mathbf', bf: 'mathbf',
   mathit: 'mathit', textit: 'mathit', emph: 'mathit', it: 'mathit',
   mathcal: 'mathscr', mathscr: 'mathscr',
-  mathfrak: 'mathfrak', mathbb: 'mathbb', Bbb: 'mathbb',
+  mathfrak: 'mathfrak', mathbb: 'mathbb', Bbb: 'mathbb', mathds: 'mathbb',
+  mathbold: 'mathbf',
   mathsf: 'mathsf', textsf: 'mathsf',
   mathtt: 'mathtt', texttt: 'mathtt', tt: 'mathtt',
 };
@@ -60,7 +61,8 @@ export const STYLE_COMMANDS = new Set(Object.keys(ALIASES));
 
 /** Commands that only strip math italics — contents pass through unchanged. */
 export const UPRIGHT_COMMANDS = new Set([
-  'mathrm', 'text', 'textnormal', 'textup', 'textmd', 'rm', 'operatorname', 'mbox', 'hbox',
+  'mathrm', 'mathnormal', 'text', 'textnormal', 'textup', 'textmd', 'rm',
+  'operatorname', 'mbox', 'hbox',
 ]);
 
 function build(spec: StyleSpec): Record<string, string> {

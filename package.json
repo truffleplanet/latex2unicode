@@ -17,9 +17,13 @@
     "src"
   ],
   "scripts": {
-    "build": "vite build && tsc --project tsconfig.build.json",
+    "dev": "vite",
+    "build": "vite build --config vite.lib.config.ts && tsc --project tsconfig.build.json",
+    "build:site": "vite build",
+    "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@types/node": "^26.1.2",

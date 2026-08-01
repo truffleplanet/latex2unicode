@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <meta
+      name="description"
+      content="LaTeX 문법이 섞인 글에서 수식 부분만 유니코드 문자로 변환합니다. 본문은 그대로 유지됩니다."
+    />
+    <title>LaTeX → Unicode 변환기</title>
+    <script type="module" src="/src/ui/main.ts"></script>
+  </head>
+  <body>
+    <header class="app-header">
+      <h1>LaTeX → Unicode</h1>
+      <p class="app-desc">
+        LaTeX 문법이 섞인 글을 붙여 넣으면 <strong>수식 부분만</strong> 유니코드 문자로 바꿔
+        줍니다. 본문은 손대지 않습니다.
+      </p>
+    </header>
+
+    <main class="app-main">
+      <div class="panes">
+        <section class="pane" aria-labelledby="input-label">
+          <div class="pane-head">
+            <label class="pane-title" id="input-label" for="input">원문</label>
+            <div class="pane-tools" role="group" aria-label="원문 도구">
+              <button type="button" id="sample-button">예시 넣기</button>
+              <button type="button" id="file-button">파일 열기…</button>
+              <input
+                type="file"
+                id="file-input"
+                accept=".txt,.md,.markdown,.tex,text/*"
+                hidden
+              />
+              <button type="button" id="clear-button">지우기</button>
+            </div>
+          </div>
+          <textarea
+            id="input"
+            placeholder="여기에 글을 붙여 넣거나, 파일을 끌어다 놓으세요.&#10;&#10;예: 학습률 $\eta = 10^{-3}$ 을 사용했다."
+            spellcheck="false"
+            autocomplete="off"
+          ></textarea>
+          <p class="pane-foot" id="input-stats">0자</p>
+        </section>
+
+        <section class="pane" aria-labelledby="output-label">
+          <div class="pane-head">
+            <h2 class="pane-title" id="output-label">변환 결과</h2>
+            <div class="pane-tools" role="group" aria-label="결과 도구">
+              <button type="button" id="copy-button" disabled>결과 복사</button>
+              <button type="button" id="download-button" disabled>.txt 저장</button>
+            </div>
+          </div>
+          <div
+            id="output"
+            class="output"
+            role="region"
+            aria-labelledby="output-label"
+            tabindex="0"
+          >
+            <p class="output-placeholder">결과가 여기에 표시됩니다.</p>
+          </div>
+          <p class="pane-foot" id="status" role="status" aria-live="polite"></p>
+        </section>
+      </div>
+
+      <section class="issues" id="issues" aria-labelledby="issues-title" hidden>
+        <div class="issues-head">
+          <h2 id="issues-title">
+            변환하지 못한 부분 <span class="issue-count" id="issue-count"></span>
+          </h2>
+          <fieldset class="policy-fieldset">
+            <legend>기본 처리 방법</legend>
+            <label>
+              <input type="radio" name="default-policy" value="keep" checked />
+              원본 유지
+            </label>
+            <label>
+              <input type="radio" name="default-policy" value="flatten" />
+              평문으로 풀기
+            </label>
+          </fieldset>
+        </div>
+        <p class="issues-hint">
+          유니코드로 표현할 수 없는 구간입니다. 항목마다 처리 방법을 따로 고를 수 있습니다.
+        </p>
+        <ol class="issue-list" id="issue-list"></ol>
+      </section>
+
+      <details class="options">
+        <summary>세부 옵션</summary>
+        <div class="options-body">
+          <label>
+            <input type="checkbox" id="opt-bare" checked />
+            <code>$…$</code> 없이 본문에 있는 명령어도 변환
+            (<code>\alpha</code> → α)
+          </label>
+          <label>
+            <input type="checkbox" id="opt-minus" checked />
+            수식의 하이픈을 음수 기호로 (<code>-</code> → −)
+          </label>
+          <label>
+            <input type="checkbox" id="opt-ligatures" />
+            본문의 TeX 관용구도 변환 (<code>---</code> → —, <code>``…''</code> → “…”)
+          </label>
+          <label>
+            <input type="checkbox" id="opt-highlight" checked />
+            결과에서 바뀐 부분 표시
+          </label>
+        </div>
+      </details>
+    </main>
+
+    <footer class="app-footer">
+      <p>변환은 모두 브라우저 안에서 처리되며, 입력한 내용은 어디에도 전송되지 않습니다.</p>
+    </footer>
+  </body>
+</html>

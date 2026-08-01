@@ -18,9 +18,9 @@ export type Node =
   | { t: 'env'; name: string; rows: Node[][][]; s: number; e: number }
   | { t: 'space'; s: number; e: number }
   | { t: 'row'; s: number; e: number }
-  | { t: 'unknown'; name: string; s: number; e: number };
+  | { t: 'unknown'; name: string; args: Node[]; s: number; e: number };
 
-const FRACS = new Set(['frac', 'dfrac', 'tfrac', 'cfrac']);
+const FRACS = new Set(['frac', 'dfrac', 'tfrac', 'cfrac', 'sfrac']);
 const BINOMS = new Set(['binom', 'dbinom', 'tbinom']);
 
 class Parser {
@@ -37,12 +37,17 @@ class Parser {
   }
 
   /** Parse a whole token list, stopping at an unmatched `}` or `\end`. */
-  parseList(stopAtEnd = false): Node[] {
+  parseList(stopAtEnd = false, stopAtClose = true): Node[] {
     const out: Node[] = [];
     for (;;) {
       const t = this.peek();
       if (!t) break;
-      if (t.k === 'close') break;
+      if (t.k === 'close') {
+        if (stopAtClose) break;
+        // Top level: a stray `}` is noise, not a terminator — keep going.
+        this.i++;
+        continue;
+      }
       if (stopAtEnd && t.k === 'cmd' && t.name === 'end') break;
       if (t.k === 'amp' || t.k === 'row') {
         if (stopAtEnd) break;
@@ -57,12 +62,21 @@ class Parser {
     return out;
   }
 
+  /** TeX ignores whitespace before `^` and `_`: `x ^2` scripts the x. */
+  private skipSpaceBeforeScript(): void {
+    let j = this.i;
+    while (this.toks[j]?.k === 'space') j++;
+    const t = this.toks[j];
+    if (t?.k === 'sup' || t?.k === 'sub') this.i = j;
+  }
+
   /** An atom plus any `^`/`_` attached to it. */
   private parseScripted(): Node | null {
     let base = this.parseAtom();
     let sup: Node | undefined;
     let sub: Node | undefined;
     let end = base ? base.e : (this.peek()?.s ?? 0);
+    this.skipSpaceBeforeScript();
 
     // Only the final character of a run carries the script: in `ab_c` the base
     // is `b`, not `ab`. Keeps the reported source span minimal.
@@ -79,6 +93,7 @@ class Parser {
     }
 
     for (;;) {
+      this.skipSpaceBeforeScript();
       const t = this.peek();
       if (!t || (t.k !== 'sup' && t.k !== 'sub')) break;
       this.i++;
@@ -145,6 +160,11 @@ class Parser {
 
     if (IGNORED_COMMANDS.has(name)) {
       // \left( \right] etc: the delimiter that follows stays, the command goes.
+      // Except `.` — the null delimiter of \left. \right. renders as nothing.
+      if (name === 'left' || name === 'right' || name === 'middle') {
+        const d = this.peek();
+        if (d?.k === 'char' && d.c === '.') this.i++;
+      }
       return null;
     }
     if (DISCARD_ARG_COMMANDS.has(name)) {
@@ -189,7 +209,32 @@ class Parser {
     if (SYMBOLS[name] !== undefined) {
       return { t: 'sym', name, s: t.s, e: t.e };
     }
-    return { t: 'unknown', name, s: t.s, e: t.e };
+    // An unknown command most likely owns the groups that follow it. Absorb
+    // them so `keep` re-emits `\overset{a}{=}` whole instead of `\overseta=`.
+    const args: Node[] = [];
+    let e = t.e;
+    for (;;) {
+      const save = this.i;
+      this.skipSpace();
+      const n = this.peek();
+      if (n?.k === 'open') {
+        const group = this.parseAtom()!;
+        args.push(group);
+        e = group.e;
+        continue;
+      }
+      if (n?.k === 'char' && n.c === '[') {
+        const opt = this.optionalArg();
+        if (opt) {
+          args.push(opt);
+          e = opt.e;
+          continue;
+        }
+      }
+      this.i = save;
+      break;
+    }
+    return { t: 'unknown', name, args, s: t.s, e };
   }
 
   private parseEnv(begin: Token & { k: 'cmd' }): Node {
@@ -294,5 +339,5 @@ class Parser {
 }
 
 export function parse(latex: string): Node[] {
-  return new Parser(tokenize(latex)).parseList();
+  return new Parser(tokenize(latex)).parseList(false, false);
 }

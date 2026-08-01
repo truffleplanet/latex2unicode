@@ -56,8 +56,22 @@ export const SYMBOLS: Record<string, string> = {
   eqslantless: '⪕', eqslantgtr: '⪖', nless: '≮', ngtr: '≯', nleq: '≰', ngeq: '≱',
   lesssim: '≲', gtrsim: '≳', lessgtr: '≶', gtrless: '≷',
   lesseqgtr: '⋚', gtreqless: '⋛', triangleq: '≜',
-  risingdotseq: '≒', fallingdotseq: '≓', eqcirc: '≖', circeq: '≗',
-  therefore: '∴', because: '∵', neqsim: '≂',
+  risingdotseq: '≓', fallingdotseq: '≒', eqcirc: '≖', circeq: '≗',
+  therefore: '∴', because: '∵', eqsim: '≂',
+  coloneqq: '≔', eqqcolon: '≕', Coloneqq: '⩴', colon: ':',
+  leqq: '≦', geqq: '≧', lneq: '⪇', gneq: '⪈', lneqq: '≨', gneqq: '≩',
+  lessapprox: '⪅', gtrapprox: '⪆', lesseqqgtr: '⪋', gtreqqless: '⪌',
+  precapprox: '⪷', succapprox: '⪸', curlyeqprec: '⋞', curlyeqsucc: '⋟',
+  precnsim: '⋨', succnsim: '⋩', lnsim: '⋦', gnsim: '⋧',
+  thicksim: '∼', thickapprox: '≈', backsim: '∽', backsimeq: '⋍',
+  Subset: '⋐', Supset: '⋑', subsetneqq: '⫋', supsetneqq: '⫌',
+  Cap: '⋒', Cup: '⋓', doublecap: '⋒', doublecup: '⋓',
+  vartriangleleft: '⊲', vartriangleright: '⊳',
+  trianglelefteq: '⊴', trianglerighteq: '⊵',
+  ntriangleleft: '⋪', ntriangleright: '⋫',
+  ntrianglelefteq: '⋬', ntrianglerighteq: '⋭',
+  nVdash: '⊮', nshortmid: '∤', shortparallel: '∥',
+  smallfrown: '⌢', smallsmile: '⌣',
 
   // ── Arrows ───────────────────────────────────────────────────────
   to: '→', rightarrow: '→', Rightarrow: '⇒', leftarrow: '←', gets: '←',
@@ -103,6 +117,40 @@ export const SYMBOLS: Record<string, string> = {
   S: '§', P: '¶', dag: '†', ddag: '‡',
   checkmark: '✓', maltese: '✠', dashleftarrow: '⇠', dashrightarrow: '⇢',
   backslash: '\\', bigcirc: '◯',
+  looparrowleft: '↫', looparrowright: '↬', restriction: '↾',
+  blacktriangle: '▲', blacktriangledown: '▼',
+  blacktriangleleft: '◀', blacktriangleright: '▶',
+  vartriangle: '△', triangledown: '▽',
+  diagup: '╱', diagdown: '╲', circledR: '®', increment: '∆',
+  female: '♀', male: '♂', And: '&', lparen: '(', rparen: ')',
+  intop: '∫', smallint: '∫',
+
+  // ── Text-mode letters and symbols (common in prose) ─────────────
+  ae: 'æ', AE: 'Æ', oe: 'œ', OE: 'Œ', ss: 'ß', aa: 'å', AA: 'Å',
+  o: 'ø', O: 'Ø', l: 'ł', L: 'Ł', dh: 'ð', DH: 'Ð', th: 'þ', TH: 'Þ',
+  dj: 'đ', DJ: 'Đ', ng: 'ŋ', NG: 'Ŋ',
+  textwon: '₩', textcent: '¢', textdollar: '$', texteuro: '€',
+  textdegree: '°', textmu: 'µ', textperthousand: '‰', permil: '‰',
+  textbullet: '•', textemdash: '—', textendash: '–',
+  textquotedblleft: '“', textquotedblright: '”',
+  textquoteleft: '‘', textquoteright: '’', textellipsis: '…',
+  textasciitilde: '~', textasciicircum: '^', textbackslash: '\\',
+  textunderscore: '_', textbar: '|', textless: '<', textgreater: '>',
+  textexclamdown: '¡', textquestiondown: '¿',
+  guillemotleft: '«', guillemotright: '»',
+  textonehalf: '½', textonequarter: '¼', textthreequarters: '¾',
+  textordfeminine: 'ª', textordmasculine: 'º',
+  textpm: '±', texttimes: '×', textdiv: '÷',
+  textsection: '§', textparagraph: '¶', textperiodcentered: '·',
+  textvisiblespace: '␣', textreferencemark: '※', textinterrobang: '‽',
+  textcopyright: '©', textnumero: '№', textcelsius: '℃',
+
+  // ── Upright greek (upgreek package) ──────────────────────────────
+  upalpha: 'α', upbeta: 'β', upgamma: 'γ', updelta: 'δ', upepsilon: 'ϵ',
+  upzeta: 'ζ', upeta: 'η', uptheta: 'θ', upiota: 'ι', upkappa: 'κ',
+  uplambda: 'λ', upmu: 'μ', upnu: 'ν', upxi: 'ξ', upomicron: 'ο',
+  uppi: 'π', uprho: 'ρ', upsigma: 'σ', uptau: 'τ', upupsilon: 'υ',
+  upphi: 'ϕ', upvarphi: 'φ', upchi: 'χ', uppsi: 'ψ', upomega: 'ω',
 
   // ── Ellipses ─────────────────────────────────────────────────────
   ldots: '…', dots: '…', dotsc: '…', cdots: '⋯', dotsb: '⋯',
@@ -149,6 +197,7 @@ export const LIMIT_OPS = new Set([
   'bigodot', 'bigoplus', 'bigotimes', 'biguplus',
   'lim', 'limsup', 'liminf', 'max', 'min', 'sup', 'inf',
   'argmax', 'argmin', 'injlim', 'projlim', 'varliminf', 'varlimsup',
+  'varinjlim', 'varprojlim',
 ]);
 
 /** Limit operators that are words rather than glyphs. */
@@ -158,7 +207,15 @@ export const LIMIT_OP_TEXT: Record<string, string> = {
   argmax: 'arg max', argmin: 'arg min',
   injlim: 'inj lim', projlim: 'proj lim',
   varliminf: 'lim inf', varlimsup: 'lim sup',
+  varinjlim: 'inj lim', varprojlim: 'proj lim',
 };
+
+/**
+ * Commands whose trailing `*` belongs to the command name. Everywhere else a
+ * `*` is multiplication (`\sigma*x`), so it must not be absorbed.
+ * Starred environments are not listed: `\begin{align*}` names come from braces.
+ */
+export const STARRED_COMMANDS = new Set(['operatorname']);
 
 /** Commands that only affect layout and can be dropped without loss. */
 export const IGNORED_COMMANDS = new Set([
