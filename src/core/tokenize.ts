@@ -1,3 +1,5 @@
+import { STARRED_COMMANDS } from './tables/symbols.js';
+
 export type Token =
   | { k: 'cmd'; name: string; s: number; e: number }
   | { k: 'char'; c: string; s: number; e: number }
@@ -46,7 +48,7 @@ export function tokenize(src: string): Token[] {
         while (j < src.length && LETTER.test(src[j])) j++;
         // A `*` binds to the command only where a starred variant exists
         // (`\operatorname*`). Elsewhere it is multiplication: `\sigma*x`.
-        if (src[j] === '*' && src.slice(i + 1, j) === 'operatorname') j++;
+        if (src[j] === '*' && STARRED_COMMANDS.has(src.slice(i + 1, j))) j++;
         const name = src.slice(i + 1, j);
         out.push({ k: 'cmd', name, s: i, e: j });
         i = j;

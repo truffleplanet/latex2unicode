@@ -210,6 +210,13 @@ export const LIMIT_OP_TEXT: Record<string, string> = {
   varinjlim: 'inj lim', varprojlim: 'proj lim',
 };
 
+/**
+ * Commands whose trailing `*` belongs to the command name. Everywhere else a
+ * `*` is multiplication (`\sigma*x`), so it must not be absorbed.
+ * Starred environments are not listed: `\begin{align*}` names come from braces.
+ */
+export const STARRED_COMMANDS = new Set(['operatorname']);
+
 /** Commands that only affect layout and can be dropped without loss. */
 export const IGNORED_COMMANDS = new Set([
   'left', 'right', 'middle',

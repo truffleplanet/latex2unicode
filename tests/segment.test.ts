@@ -68,6 +68,11 @@ describe('bare commands in prose', () => {
     expect(mathBodies('degree \\sqrt[3]{8} root')).toEqual(['\\sqrt[3]{8}']);
   });
 
+  it('keeps a starred command whole, but not a multiplication star', () => {
+    expect(mathBodies('we use \\operatorname*{argmax} here')).toEqual(['\\operatorname*{argmax}']);
+    expect(mathBodies('the \\alpha* note')).toEqual(['\\alpha']);
+  });
+
   it('ignores unknown backslash sequences', () => {
     expect(mathBodies('path C:\\Users\\home')).toEqual([]);
     expect(mathBodies('regex \\d+ matches')).toEqual([]);

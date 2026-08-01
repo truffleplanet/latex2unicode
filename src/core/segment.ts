@@ -1,4 +1,6 @@
-import { SYMBOLS, FUNCTIONS, LIMIT_OPS, IGNORED_COMMANDS, DISCARD_ARG_COMMANDS } from './tables/symbols.js';
+import {
+  SYMBOLS, FUNCTIONS, LIMIT_OPS, IGNORED_COMMANDS, DISCARD_ARG_COMMANDS, STARRED_COMMANDS,
+} from './tables/symbols.js';
 import { STYLE_COMMANDS, UPRIGHT_COMMANDS } from './tables/alphabets.js';
 import { ACCENTS } from './tables/accents.js';
 
@@ -45,7 +47,8 @@ export const KNOWN_COMMANDS: ReadonlySet<string> = new Set([
   'sqrt', 'root', 'over', 'atop', 'begin', 'end', 'substack',
 ]);
 
-const CMD_RE = /^\\([a-zA-Z]+)/;
+const CMD_RE = /^\\([a-zA-Z]+)(\*?)/;
+const BLANK_LINE_RE = /^[ \t\r]*\n/;
 
 /**
  * Heuristic for `$...$`: TeX's inline delimiter collides with currency, which
@@ -79,7 +82,9 @@ export function looksLikeDisplayMath(body: string): boolean {
 function isKnownCommandAt(src: string, i: number): string | null {
   const m = CMD_RE.exec(src.slice(i, i + 32));
   if (!m) return null;
-  return KNOWN_COMMANDS.has(m[1]) ? m[0] : null;
+  if (!KNOWN_COMMANDS.has(m[1])) return null;
+  // Keep the star only where it is part of the name, matching the tokenizer.
+  return m[2] && !STARRED_COMMANDS.has(m[1]) ? `\\${m[1]}` : m[0];
 }
 
 /** Skip a balanced `{...}` or `[...]` group starting at `i`; -1 if unbalanced. */
@@ -264,7 +269,8 @@ export function segment(src: string, opts: { convertBareCommands: boolean }): Se
         for (let j = i + 2; j < src.length; j++) {
           if (src[j] === '\\') { j++; continue; }
           if (src.startsWith('```', j)) break;
-          if (src[j] === '\n' && src[j + 1] === '\n') break;
+          // A blank line ends the search, CRLF and trailing spaces included.
+          if (src[j] === '\n' && BLANK_LINE_RE.test(src.slice(j + 1, j + 16))) break;
           if (src[j] === '$' && src[j + 1] === '$') { close = j; break; }
         }
         if (close !== -1 && looksLikeDisplayMath(src.slice(i + 2, close))) {

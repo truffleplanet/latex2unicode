@@ -265,6 +265,11 @@ describe('regressions: segmentation', () => {
 
   it('never lets $$ cross a paragraph break or a code fence', () => {
     expect(u('Stray $$ here.\n\n$$x^2$$')).toBe('Stray $$ here.\n\nx²');
+    // Windows line endings and trailing spaces still read as a blank line.
+    const crlf = 'Stray $$ here.\r\n\r\n노트: x^2 = y 입니다 $$ 끝';
+    expect(u(crlf)).toBe(crlf);
+    const padded = 'Stray $$ here.\n   \n노트: x^2 = y 입니다 $$ 끝';
+    expect(u(padded)).toBe(padded);
     const fenced = 'Stray $$ here.\n```\nExample: $$E=mc^2$$\n```\nafter';
     expect(u(fenced)).toBe(fenced);
   });
@@ -280,6 +285,10 @@ describe('regressions: segmentation', () => {
 
   it('does not eat a prose asterisk after a bare command', () => {
     expect(u('the \\alpha* note')).toBe('the α* note');
+  });
+
+  it('converts a starred operator name found in prose', () => {
+    expect(u('we use \\operatorname*{argmax} here')).toBe('we use argmax here');
   });
 });
 
