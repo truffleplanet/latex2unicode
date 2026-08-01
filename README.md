@@ -1,6 +1,6 @@
 # latex2unicode
 
-LaTeX 문법이 섞인 긴 글에서 **LaTeX 부분만** 유니코드로 변환하는 도구입니다.
+수식이 섞인 긴 글에서 **수식 부분만** 유니코드로 변환하는 도구입니다.
 본문(프로즈)은 그대로 두고, 유니코드로 표현할 수 없는 부분은 정해진 규칙에 따라 폴백 처리 및 이슈 리포트를 반환합니다.
 
 TypeScript 코어 라이브러리와, 이를 그대로 사용하는 정적 웹 UI로 구성됩니다.
@@ -8,8 +8,33 @@ TypeScript 코어 라이브러리와, 이를 그대로 사용하는 정적 웹 U
 ```ts
 import { toUnicode, convert } from 'latex2unicode';
 
+// LaTeX 모드 (기본값)
 toUnicode('$\\alpha = 10^{-3}$ 이고 $\\theta \\in \\mathbb{R}^d$ 입니다.');
 // => 'α = 10⁻³ 이고 θ ∈ ℝᵈ 입니다.'
+
+// 일반 텍스트 모드
+toUnicode('<=> Exists x in f^-1(B) s.t. y = f(x)', { mode: 'ascii' });
+// => '⇔ ∃ x ∈ f⁻¹(B) s.t. y = f(x)'
+```
+
+## 두 가지 입력 표기법
+
+| 모드 | 읽는 것 | 예 |
+|---|---|---|
+| `latex` (기본) | `$…$`, `\(…\)`, `\[…\]`, 수식 환경, 본문 속 `\명령어` | `$\frac{a}{b}$`, `\alpha` |
+| `ascii` | LaTeX 없이 타이핑한 평문 수식 | `forall x`, `<=>`, `f^-1`, `x in A` |
+
+모드는 **명시적으로 선택하며 자동 판별하지 않습니다.** 산문을 수식으로 오인하면 조용히 문서가 훼손되기 때문입니다.
+
+일반 텍스트 모드는 줄 단위로 판단합니다. 유도 과정처럼 보이는 줄에서는 `->`가 화살표, `and`가 논리곱이지만,
+문장에서는 그렇지 않습니다. 그래서 산문 줄에서는 `f^-1` 같은 명백한 표기만 바꾸고,
+코드로 보이는 줄(들여쓰기, 키워드, `ptr->x`)과 코드펜스·인라인 코드는 아예 건드리지 않습니다.
+
+```
+<=> Exists x in f^-1(B1) s.t. y = f(x)   →  ⇔ ∃ x ∈ f⁻¹(B1) s.t. y = f(x)
+Take any y in f(f^-1(B1)).               →  Take any y in f(f⁻¹(B1)).
+배포 순서는 빌드 -> 테스트 -> 릴리스        →  (그대로)
+if (a <= b) return ptr->value;           →  (그대로)
 ```
 
 ## 설치 및 빌드
@@ -80,15 +105,29 @@ if (issues.length > 0) {
 결과 텍스트 + 변환 결과 객체
 ```
 
+표기법을 읽는 부분(프론트엔드)만 모드마다 다르고, 그 아래는 전부 공유합니다.
+
 | 모듈 | 역할 |
 |---|---|
-| `src/core/segment.ts` | `$…$`, `$$…$$`, `\(…\)`, `\[…\]`, 수식 환경 및 맨몸 명령어 탐지 |
-| `src/core/tokenize.ts` | LaTeX 토크나이저 |
-| `src/core/parse.ts` | 미니 AST (스크립트, 분수, 근호, 악센트, 폰트, 환경 등) |
+| **공통** | |
+| `src/core/node.ts` | 양쪽 프론트엔드가 만드는 AST. 오프셋은 **원본 문서**를 가리켜야 함 |
+| `src/core/frontend.ts` | `Segment`/`Frontend` 계약 |
 | `src/core/render.ts` | AST → 유니코드 변환 및 폴백 판정 |
-| `src/core/convert.ts` | 파이프라인 통합 조립 및 결과/통계 생성 |
+| `src/core/pipeline.ts` | 구간 순회 → 렌더 → 병합 → 통계 |
+| `src/core/text/code.ts` | 코드펜스·인라인 코드 건너뛰기 (산문 보호) |
 | `src/core/tables/` | 심볼, 상하첨자, 수학 알파벳, 악센트, 분수 맵핑 테이블 |
+| **LaTeX 전용** | |
+| `src/core/latex/segment.ts` | `$…$`, `$$…$$`, `\(…\)`, `\[…\]`, 수식 환경 및 맨몸 명령어 탐지 |
+| `src/core/latex/tokenize.ts` | LaTeX 토크나이저 |
+| `src/core/latex/parse.ts` | LaTeX 파서 |
+| **일반 텍스트 전용** | |
+| `src/core/ascii/classify.ts` | 줄 분류 (formal / prose / code) |
+| `src/core/ascii/segment.ts` | 변환 대상 구간 탐지 |
+| `src/core/ascii/scan.ts` | 평문 표기 → AST |
 | `src/ui/` | 웹 UI (바닐라 TS, 프레임워크 없음) |
+
+새 표기법을 추가하려면 `Frontend` 하나만 구현하면 됩니다. 단, **입력을 재작성해서는 안 됩니다** —
+노드 오프셋이 원본을 벗어나면 `keep` 정책이 사용자가 쓴 적 없는 텍스트를 문서에 삽입하게 됩니다.
 
 ## 설계 원칙
 

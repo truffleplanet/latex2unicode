@@ -15,12 +15,26 @@
     <header class="app-header">
       <h1>LaTeX → Unicode</h1>
       <p class="app-desc">
-        LaTeX 문법이 섞인 글을 붙여 넣으면 <strong>수식 부분만</strong> 유니코드 문자로 바꿔
-        줍니다. 본문은 손대지 않습니다.
+        수식이 섞인 글을 붙여 넣으면 <strong>수식 부분만</strong> 유니코드 문자로 바꿔 줍니다.
+        본문은 손대지 않습니다.
       </p>
     </header>
 
     <main class="app-main">
+      <fieldset class="mode-fieldset">
+        <legend>입력 표기법</legend>
+        <label>
+          <input type="radio" name="mode" value="latex" checked />
+          <span class="mode-name">LaTeX</span>
+          <span class="mode-hint"><code>$x^2$</code>, <code>\alpha</code>, <code>\frac{a}{b}</code></span>
+        </label>
+        <label>
+          <input type="radio" name="mode" value="ascii" />
+          <span class="mode-name">일반 텍스트</span>
+          <span class="mode-hint"><code>forall x</code>, <code>&lt;=&gt;</code>, <code>f^-1</code></span>
+        </label>
+      </fieldset>
+
       <div class="panes">
         <section class="pane" aria-labelledby="input-label">
           <div class="pane-head">
@@ -93,7 +107,7 @@
       <details class="options">
         <summary>세부 옵션</summary>
         <div class="options-body">
-          <label>
+          <label id="opt-bare-row">
             <input type="checkbox" id="opt-bare" checked />
             <code>$…$</code> 없이 본문에 있는 명령어도 변환
             (<code>\alpha</code> → α)

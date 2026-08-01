@@ -5,7 +5,7 @@ export type FallbackPolicy = 'keep' | 'flatten';
  * Which notation the input is written in. Chosen explicitly, never guessed:
  * misreading prose as notation corrupts the document silently.
  */
-export type Mode = 'latex';
+export type Mode = 'latex' | 'ascii';
 
 export interface ConvertOptions {
   /** The notation to read. */
