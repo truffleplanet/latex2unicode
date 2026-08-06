@@ -237,7 +237,16 @@ mark.converted {
   border-radius: 3px;
 }
 
-mark.fallback {
+.output button.fallback {
+  padding: 0;
+  font: inherit;
+  text-align: inherit;
+  white-space: inherit;
+  border: 0;
+}
+
+mark.fallback,
+.output button.fallback {
   background: var(--fallback-bg);
   color: var(--fallback-fg);
   border-bottom: 2px dotted var(--fallback-border);
@@ -250,7 +259,11 @@ mark.fallback {
   white-space: inherit;
 }
 
-.output.plain mark.fallback {
+.output.plain button.fallback {
+  color: inherit;
+  background: transparent;
+  border-bottom: 0;
+  border-radius: 0;
   cursor: pointer;
 }
 

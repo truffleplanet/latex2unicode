@@ -13,6 +13,8 @@ node_modules/
 dist/
 dist-ssr/
 site/
+playwright-report/
+test-results/
 *.tsbuildinfo
 
 # Cache & Temp
@@ -42,4 +44,3 @@ ehthumbs.db
 .idea/
 *.swp
 *.swo
-

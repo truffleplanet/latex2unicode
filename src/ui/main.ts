@@ -142,14 +142,25 @@ function renderOutput(result: ConvertResult): void {
       fragment.append(piece.text);
       continue;
     }
+    if (piece.kind === 'fallback' && piece.issueId) {
+      const issue = result.issues.find((i) => i.id === piece.issueId);
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'fallback';
+      button.textContent = piece.text;
+      button.dataset.issue = piece.issueId;
+      if (issue) {
+        const title = issueTitle(issue);
+        button.title = `${title} — 아래 목록에서 처리 방법을 고를 수 있습니다.`;
+        button.setAttribute('aria-label', `${piece.text}: ${title}. 처리 방법으로 이동`);
+      }
+      fragment.append(button);
+      continue;
+    }
+
     const mark = document.createElement('mark');
     mark.className = piece.kind === 'math' ? 'converted' : 'fallback';
     mark.textContent = piece.text;
-    if (piece.kind === 'fallback' && piece.issueId) {
-      const issue = result.issues.find((i) => i.id === piece.issueId);
-      mark.dataset.issue = piece.issueId;
-      if (issue) mark.title = `${issueTitle(issue)} — 아래 목록에서 처리 방법을 고를 수 있습니다.`;
-    }
     fragment.append(mark);
   }
   output.append(fragment);
@@ -164,6 +175,7 @@ function renderIssues(result: ConvertResult): void {
     const item = document.createElement('li');
     item.className = 'issue';
     item.id = `issue-${issue.id}`;
+    item.tabIndex = -1;
 
     const meta = document.createElement('p');
     meta.className = 'issue-meta';
@@ -332,11 +344,12 @@ downloadButton.addEventListener('click', () => {
 
 /* 결과의 변환 불가 구간을 누르면 해당 이슈 카드로 이동 */
 output.addEventListener('click', (event) => {
-  const mark = (event.target as HTMLElement).closest<HTMLElement>('mark.fallback');
-  if (!mark?.dataset.issue) return;
-  const card = document.getElementById(`issue-${mark.dataset.issue}`);
+  const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button.fallback');
+  if (!button?.dataset.issue) return;
+  const card = document.getElementById(`issue-${button.dataset.issue}`);
   if (!card) return;
   card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  card.focus({ preventScroll: true });
   card.classList.remove('flash');
   void card.offsetWidth; // 리플로우를 강제해 애니메이션을 처음부터 다시 재생한다.
   card.classList.add('flash');

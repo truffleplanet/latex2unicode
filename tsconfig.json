@@ -13,5 +13,12 @@
     "skipLibCheck": true,
     "types": ["vite/client", "node"]
   },
-  "include": ["src", "tests", "vite.config.ts", "vite.lib.config.ts"]
+  "include": [
+    "src",
+    "tests",
+    "e2e",
+    "playwright.config.ts",
+    "vite.config.ts",
+    "vite.lib.config.ts"
+  ]
 }
