@@ -1,4 +1,4 @@
-import type { Node } from './parse.js';
+import type { Node } from './node.js';
 import type { ConvertOptions, Issue, IssueCode, Piece } from './types.js';
 import { SYMBOLS, LIMIT_OP_TEXT } from './tables/symbols.js';
 import { SUPERSCRIPT, SUBSCRIPT, toScript } from './tables/scripts.js';
@@ -26,6 +26,8 @@ export interface RenderCtx {
   memo: WeakMap<object, Record<string, string | null>>;
   /** Offsets of line starts in `source`, for issue line numbers. */
   lines: number[];
+  /** How the active notation writes a command name in a message. */
+  labelCommand: (name: string) => string;
 }
 
 const ENV_BRACKETS: Record<string, [string, string]> = {
@@ -241,8 +243,8 @@ export function renderNode(node: Node, ctx: RenderCtx, path: number[]): Piece[] 
         node,
         {
           code: 'unknown-command',
-          detail: `\\${node.name}`,
-          reason: `\\${node.name} is not in the symbol table`,
+          detail: ctx.labelCommand(node.name),
+          reason: `${ctx.labelCommand(node.name)} is not in the symbol table`,
         },
         node.name + args,
         ctx,
@@ -273,7 +275,7 @@ export function renderNode(node: Node, ctx: RenderCtx, path: number[]): Piece[] 
           {
             code: 'style-alphabet',
             detail: target,
-            reason: `\\${node.cmd} has no Unicode form for "${target}"`,
+            reason: `${ctx.labelCommand(node.cmd)} has no Unicode form for "${target}"`,
           },
           inner ?? flat(node.body, ctx),
           ctx,

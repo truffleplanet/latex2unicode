@@ -1,24 +1,10 @@
 import { tokenize, type Token } from './tokenize.js';
-import { SYMBOLS, FUNCTIONS, LIMIT_OPS, IGNORED_COMMANDS, DISCARD_ARG_COMMANDS } from './tables/symbols.js';
-import { STYLE_COMMANDS, UPRIGHT_COMMANDS } from './tables/alphabets.js';
-import { ACCENTS } from './tables/accents.js';
+import type { Node } from '../node.js';
+import { SYMBOLS, FUNCTIONS, LIMIT_OPS, IGNORED_COMMANDS, DISCARD_ARG_COMMANDS } from '../tables/symbols.js';
+import { STYLE_COMMANDS, UPRIGHT_COMMANDS } from '../tables/alphabets.js';
+import { ACCENTS } from '../tables/accents.js';
 
-export type Node =
-  | { t: 'chars'; text: string; s: number; e: number }
-  | { t: 'sym'; name: string; s: number; e: number }
-  | { t: 'func'; name: string; s: number; e: number }
-  | { t: 'op'; name: string; s: number; e: number }
-  | { t: 'group'; body: Node[]; s: number; e: number }
-  | { t: 'script'; base: Node | null; sup?: Node; sub?: Node; s: number; e: number }
-  | { t: 'frac'; num: Node; den: Node; style: 'frac' | 'binom'; s: number; e: number }
-  | { t: 'sqrt'; index?: Node; body: Node; s: number; e: number }
-  | { t: 'accent'; cmd: string; body: Node; s: number; e: number }
-  | { t: 'style'; cmd: string; body: Node; s: number; e: number }
-  | { t: 'upright'; body: Node; s: number; e: number }
-  | { t: 'env'; name: string; rows: Node[][][]; s: number; e: number }
-  | { t: 'space'; s: number; e: number }
-  | { t: 'row'; s: number; e: number }
-  | { t: 'unknown'; name: string; args: Node[]; s: number; e: number };
+
 
 const FRACS = new Set(['frac', 'dfrac', 'tfrac', 'cfrac', 'sfrac']);
 const BINOMS = new Set(['binom', 'dbinom', 'tbinom']);
