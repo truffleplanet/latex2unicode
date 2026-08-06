@@ -48,6 +48,7 @@
                 accept=".txt,.md,.markdown,.tex,text/*"
                 hidden
               />
+              <button type="button" id="symbol-button">기호 넣기</button>
               <button type="button" id="clear-button">지우기</button>
             </div>
           </div>
@@ -126,6 +127,46 @@
           </label>
         </div>
       </details>
+
+      <dialog class="symbol-dialog" id="symbol-dialog" aria-labelledby="symbol-finder-title">
+        <div class="symbol-finder-head">
+          <div>
+            <h2 id="symbol-finder-title">기호 찾기</h2>
+            <p>이름이나 표기법으로 찾아 복사하거나 원문에 바로 넣으세요.</p>
+          </div>
+          <button type="button" id="symbol-close-button">닫기</button>
+        </div>
+        <div class="symbol-finder-controls">
+          <label>
+            <span>기호 검색</span>
+            <input
+              type="search"
+              id="symbol-search"
+              placeholder="부분집합, subset, \\subseteq…"
+              autocomplete="off"
+            />
+          </label>
+          <label>
+            <span>분류</span>
+            <select id="symbol-category">
+              <option value="all">전체</option>
+              <option value="sets">집합</option>
+              <option value="logic">논리</option>
+              <option value="relations">관계</option>
+              <option value="arrows">화살표</option>
+              <option value="greek">그리스 문자</option>
+            </select>
+          </label>
+        </div>
+        <div class="symbol-finder-meta">
+          <p class="symbol-count" id="symbol-count"></p>
+          <p class="symbol-action-status" id="symbol-status" role="status" aria-live="polite"></p>
+        </div>
+        <ul class="symbol-list" id="symbol-list"></ul>
+        <p class="symbol-empty" id="symbol-empty" hidden>
+          일치하는 기호가 없습니다. 다른 이름이나 표기법으로 검색해 보세요.
+        </p>
+      </dialog>
     </main>
 
     <footer class="app-footer">

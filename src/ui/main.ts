@@ -1,6 +1,7 @@
 import { convert } from '../core/convert.js';
 import type { ConvertResult, FallbackPolicy, Mode } from '../core/types.js';
 import { issueExplanation, issueTitle } from './messages.js';
+import { filterSymbols, notationFor, type SymbolCategory } from './symbol-catalog.js';
 import './style.css';
 
 const $ = <T extends HTMLElement>(selector: string): T => {
@@ -18,6 +19,15 @@ const downloadButton = $<HTMLButtonElement>('#download-button');
 const issuesSection = $<HTMLElement>('#issues');
 const issueCount = $<HTMLSpanElement>('#issue-count');
 const issueList = $<HTMLOListElement>('#issue-list');
+const symbolButton = $<HTMLButtonElement>('#symbol-button');
+const symbolDialog = $<HTMLDialogElement>('#symbol-dialog');
+const symbolCloseButton = $<HTMLButtonElement>('#symbol-close-button');
+const symbolSearch = $<HTMLInputElement>('#symbol-search');
+const symbolCategory = $<HTMLSelectElement>('#symbol-category');
+const symbolList = $<HTMLUListElement>('#symbol-list');
+const symbolCount = $<HTMLParagraphElement>('#symbol-count');
+const symbolEmpty = $<HTMLParagraphElement>('#symbol-empty');
+const symbolStatus = $<HTMLParagraphElement>('#symbol-status');
 
 const optBare = $<HTMLInputElement>('#opt-bare');
 const optMinus = $<HTMLInputElement>('#opt-minus');
@@ -261,6 +271,7 @@ for (const radio of document.querySelectorAll<HTMLInputElement>('input[name="mod
     if (!radio.checked) return;
     state.mode = radio.value as Mode;
     syncModeUi();
+    renderSymbolFinder();
     run();
   });
 }
@@ -355,6 +366,109 @@ output.addEventListener('click', (event) => {
   card.classList.add('flash');
 });
 
+/* ── 기호 찾기 ─────────────────────────────────────────────── */
+
+let symbolSelectionStart = 0;
+let symbolSelectionEnd = 0;
+let focusInputAfterDialog = false;
+
+function insertNotation(notation: string): void {
+  const before = input.value.slice(0, symbolSelectionStart);
+  const after = input.value.slice(symbolSelectionEnd);
+  const prefix = before !== '' && !/\s$/.test(before) ? ' ' : '';
+  const suffix = after !== '' && !/^\s/.test(after) ? ' ' : '';
+  input.setRangeText(
+    `${prefix}${notation}${suffix}`,
+    symbolSelectionStart,
+    symbolSelectionEnd,
+    'end',
+  );
+  clearTimeout(debounceTimer);
+  run();
+  status.textContent = `${notation} 표기를 원문에 넣었습니다.`;
+  focusInputAfterDialog = true;
+  symbolDialog.close();
+}
+
+async function copySymbol(symbol: string): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(symbol);
+    symbolStatus.textContent = `${symbol} 기호를 클립보드에 복사했습니다.`;
+  } catch {
+    symbolStatus.textContent = `${symbol} 기호를 복사하지 못했습니다. 기호를 직접 선택해 주세요.`;
+  }
+}
+
+function renderSymbolFinder(): void {
+  const category = symbolCategory.value as SymbolCategory | 'all';
+  const entries = filterSymbols(symbolSearch.value, category, state.mode);
+  symbolList.innerHTML = '';
+  symbolCount.textContent = `${entries.length}개 기호`;
+  symbolEmpty.hidden = entries.length !== 0;
+
+  for (const entry of entries) {
+    const item = document.createElement('li');
+    item.className = 'symbol-item';
+
+    const copy = document.createElement('button');
+    copy.type = 'button';
+    copy.className = 'symbol-copy';
+    copy.textContent = entry.symbol;
+    copy.setAttribute('aria-label', `${entry.symbol} ${entry.name} 기호 복사`);
+    copy.title = '기호 복사';
+    copy.addEventListener('click', () => void copySymbol(entry.symbol));
+
+    const info = document.createElement('div');
+    info.className = 'symbol-info';
+    const name = document.createElement('strong');
+    name.textContent = entry.name;
+    const notation = document.createElement('div');
+    notation.className = 'symbol-notation';
+    const sourceNotation = notationFor(entry, state.mode);
+    if (sourceNotation) {
+      const code = document.createElement('code');
+      code.textContent = sourceNotation;
+      notation.append(code);
+    }
+    info.append(name, notation);
+
+    const insert = document.createElement('button');
+    insert.type = 'button';
+    insert.className = 'symbol-insert';
+    const modeLabel = sourceNotation
+      ? state.mode === 'latex'
+        ? 'LaTeX로 넣기'
+        : '일반 텍스트로 넣기'
+      : '유니코드로 넣기';
+    insert.textContent = modeLabel;
+    insert.setAttribute('aria-label', `${entry.symbol} ${entry.name} ${modeLabel}`);
+    insert.addEventListener('click', () => insertNotation(sourceNotation ?? entry.symbol));
+
+    item.append(copy, info, insert);
+    symbolList.append(item);
+  }
+}
+
+symbolSearch.addEventListener('input', renderSymbolFinder);
+symbolCategory.addEventListener('change', renderSymbolFinder);
+
+symbolButton.addEventListener('click', () => {
+  symbolSelectionStart = input.selectionStart;
+  symbolSelectionEnd = input.selectionEnd;
+  symbolStatus.textContent = '';
+  symbolDialog.showModal();
+  symbolSearch.focus();
+  symbolSearch.select();
+});
+
+symbolCloseButton.addEventListener('click', () => symbolDialog.close());
+
+symbolDialog.addEventListener('close', () => {
+  if (focusInputAfterDialog) input.focus();
+  else symbolButton.focus();
+  focusInputAfterDialog = false;
+});
+
 /* ── 상태 저장/복원 ────────────────────────────────────────── */
 
 function persist(): void {
@@ -415,3 +529,4 @@ function restore(): void {
 restore();
 syncModeUi();
 run();
+renderSymbolFinder();
