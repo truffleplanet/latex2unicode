@@ -177,6 +177,14 @@ describe('prose is left alone', () => {
     expect(toUnicode('a --- b', { textLigatures: true })).toBe('a — b');
   });
 
+  it('does not apply text ligatures inside code', () => {
+    const fenced = '```\na---b and ``quoted\'\'\n```';
+    expect(toUnicode(`before --- \`a---b\` after ---`, { textLigatures: true })).toBe(
+      'before — `a---b` after —',
+    );
+    expect(toUnicode(fenced, { textLigatures: true })).toBe(fenced);
+  });
+
   it('converts escaped literals', () => {
     expect(u('50\\% of cases')).toBe('50% of cases');
   });
@@ -401,6 +409,12 @@ describe('output invariants', () => {
     const fb = r.pieces.filter((p) => p.kind === 'fallback');
     expect(fb).toHaveLength(1);
     expect(fb[0].issueId).toBe(r.issues[0].id);
+  });
+
+  it('counts only notation regions whose output changed', () => {
+    expect(convert('x^q = y', { mode: 'ascii' }).stats.convertedChars).toBe(0);
+    expect(convert('=> x in A', { mode: 'ascii' }).stats.convertedChars).toBe(9);
+    expect(convert('$x^2$').stats.convertedChars).toBe(5);
   });
 
   it('never throws on malformed input', () => {

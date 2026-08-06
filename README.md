@@ -56,6 +56,14 @@ npm test            # vitest 단위 테스트
 - 이슈마다 **원본 유지 / 평문으로 풀기**를 따로 선택할 수 있고, 두 선택지의 실제 결과 미리보기가 함께 표시됩니다.
 - 결과는 복사하거나 `.txt` 로 저장할 수 있습니다.
 
+### GitHub Pages 배포
+
+`main` 브랜치에 변경이 들어오면 `.github/workflows/deploy-pages.yml`이 테스트와 타입 검사를
+통과한 뒤 `site/` 빌드 결과만 GitHub Pages에 배포합니다. Actions 탭에서 수동 실행도 가능합니다.
+
+저장소에서 처음 한 번은 **Settings → Pages → Build and deployment → Source**를
+**GitHub Actions**로 설정해야 합니다. `site/`는 빌드 산출물이므로 Git에는 커밋하지 않습니다.
+
 ## 사용법 (라이브러리)
 
 ### 1. 간단 변환 (`toUnicode`)

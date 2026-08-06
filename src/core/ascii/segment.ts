@@ -60,10 +60,18 @@ export function segmentAscii(source: string): Segment[] {
     } else if (!inFence) {
       const kind = classifyLine(line);
       if (kind === 'formal') {
-        // Keep the indentation as prose so the layout of a proof survives.
-        const lead = line.length - line.trimStart().length;
-        const trail = line.length - line.trimEnd().length;
-        pushMath(lineStart + lead, lineEnd - trail, true);
+        const pushFormal = (start: number, end: number) => {
+          const body = line.slice(start, end);
+          const lead = body.length - body.trimStart().length;
+          const trail = body.length - body.trimEnd().length;
+          pushMath(lineStart + start + lead, lineStart + end - trail, true);
+        };
+        let mathStart = 0;
+        for (const [codeStart, codeEnd] of findInlineCodeSpans(line)) {
+          pushFormal(mathStart, codeStart);
+          mathStart = codeEnd;
+        }
+        pushFormal(mathStart, line.length);
       } else if (kind === 'prose') {
         for (const m of findScripts(line)) {
           pushMath(lineStart + m.start, lineStart + m.end, false);
@@ -82,14 +90,7 @@ export function segmentAscii(source: string): Segment[] {
 /** Exponent expressions on a prose line, skipping anything inside code spans. */
 function findScripts(line: string): Array<{ start: number; end: number }> {
   const spans: Array<{ start: number; end: number }> = [];
-  const code: Array<[number, number]> = [];
-  for (let i = 0; i < line.length; i++) {
-    if (line[i] !== '`') continue;
-    const close = skipInlineCode(line, i);
-    if (close === -1) break;
-    code.push([i, close]);
-    i = close - 1;
-  }
+  const code = findInlineCodeSpans(line);
 
   SCRIPT_IN_PROSE.lastIndex = 0;
   let m: RegExpExecArray | null;
@@ -98,6 +99,18 @@ function findScripts(line: string): Array<{ start: number; end: number }> {
     const end = start + m[0].length;
     if (code.some(([a, b]) => start < b && end > a)) continue;
     spans.push({ start, end });
+  }
+  return spans;
+}
+
+function findInlineCodeSpans(line: string): Array<[number, number]> {
+  const spans: Array<[number, number]> = [];
+  for (let i = 0; i < line.length; i++) {
+    if (line[i] !== '`') continue;
+    const close = skipInlineCode(line, i);
+    if (close === -1) break;
+    spans.push([i, close]);
+    i = close - 1;
   }
   return spans;
 }

@@ -1,15 +1,42 @@
 import type { Frontend } from './frontend.js';
 import { renderNodes, type RenderCtx } from './render.js';
+import { backtickRun, skipFence, skipInlineCode } from './text/code.js';
 import type { ConvertOptions, ConvertResult, Issue, Piece } from './types.js';
 
 /** TeX prose idioms, applied to surrounding text only when explicitly enabled. */
 function textLigatures(s: string): string {
-  return s
+  const replace = (text: string): string => text
     .replace(/---/g, '—')
     .replace(/--/g, '–')
     .replace(/``/g, '“')
     .replace(/''/g, '”')
     .replace(/\.\.\./g, '…');
+
+  let out = '';
+  let plainStart = 0;
+  let i = 0;
+  while (i < s.length) {
+    if (s.startsWith('```', i)) {
+      const end = skipFence(s, i);
+      out += replace(s.slice(plainStart, i)) + s.slice(i, end);
+      i = end;
+      plainStart = end;
+      continue;
+    }
+    if (s[i] === '`') {
+      const end = skipInlineCode(s, i);
+      if (end !== -1) {
+        out += replace(s.slice(plainStart, i)) + s.slice(i, end);
+        i = end;
+        plainStart = end;
+        continue;
+      }
+      i += backtickRun(s, i);
+      continue;
+    }
+    i++;
+  }
+  return out + replace(s.slice(plainStart));
 }
 
 /**
@@ -67,7 +94,7 @@ export function run(
       pieces.push({ text: seg.raw, kind: 'text' });
       return;
     }
-    convertedChars += seg.raw.length;
+    if (rendered.map((p) => p.text).join('') !== seg.raw) convertedChars += seg.raw.length;
     pieces.push(...rendered);
   });
 

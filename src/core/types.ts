@@ -94,7 +94,7 @@ export interface ConvertResult {
     segments: number;
     /** Number of unconvertible constructs. */
     issues: number;
-    /** Characters of LaTeX replaced by Unicode. */
+    /** Source characters in notation regions whose rendered output changed. */
     convertedChars: number;
   };
 }

@@ -24,6 +24,11 @@ describe('formal notation lines', () => {
   it('keeps indentation', () => {
     expect(a('  <=> y in B')).toBe('  ⇔ y ∈ B');
   });
+
+  it('leaves inline code inside a derivation alone', () => {
+    expect(a('=> x in A and `f^-1`')).toBe('⇒ x ∈ A ∧ `f^-1`');
+    expect(a('=> `x in A` and y in B')).toBe('⇒ `x in A` ∧ y ∈ B');
+  });
 });
 
 describe('prose lines keep their words', () => {
