@@ -1,5 +1,6 @@
 /* ── 기본 토큰 ─────────────────────────────────────────────── */
 :root {
+  color-scheme: light dark;
   --bg: #ffffff;
   --bg-subtle: #f6f7f8;
   --fg: #1a1c1e;
@@ -99,6 +100,25 @@ button:hover:not(:disabled) {
 button:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+/* 고대비 모드에서는 색상 대신 시스템 색과 테두리로 상태를 구분한다. */
+@media (forced-colors: active) {
+  mark.converted,
+  mark.fallback,
+  .output button.fallback {
+    color: CanvasText;
+    background: Canvas;
+  }
+
+  mark.converted {
+    outline: 1px solid Highlight;
+  }
+
+  mark.fallback,
+  .output button.fallback {
+    border: 2px dashed Highlight;
+  }
 }
 
 /* ── 머리글 ────────────────────────────────────────────────── */
@@ -390,6 +410,15 @@ button:disabled {
 
   .symbol-list {
     grid-template-columns: 1fr;
+  }
+
+  .policy-fieldset {
+    flex-wrap: wrap;
+  }
+
+  .policy-fieldset legend {
+    float: none;
+    width: 100%;
   }
 }
 

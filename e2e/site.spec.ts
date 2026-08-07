@@ -14,6 +14,15 @@ test('converts LaTeX while preserving currency text', async ({ page }) => {
   await expect(page.locator('#status')).toHaveText('LaTeX 구간 1개 변환 · 모두 변환됨');
 });
 
+test('keeps input and result guidance available to assistive technology', async ({ page }) => {
+  const input = page.getByRole('textbox', { name: '원문' });
+  await expect(input).toHaveAttribute('aria-describedby', 'input-help input-stats');
+  await expect(page.locator('#input-help')).toContainText('텍스트 파일을 끌어다 놓으세요');
+  await expect(page.locator('#input-stats')).toHaveAttribute('role', 'status');
+  await expect(page.locator('#output')).toHaveAttribute('aria-describedby', 'output-help');
+  await expect(page.locator('#output-help')).toContainText('처리 방법으로 이동');
+});
+
 test('converts formal ASCII notation without changing inline code or prose', async ({ page }) => {
   await page.getByRole('radio', { name: /일반 텍스트/ }).check();
   await page
@@ -113,4 +122,14 @@ test('has no detectable accessibility violations in the symbol finder', async ({
 
   await page.getByRole('dialog', { name: '기호 찾기' }).press('Escape');
   await expect(trigger).toBeFocused();
+});
+
+test('does not cause horizontal overflow on a narrow screen', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 720 });
+  await page.getByRole('textbox', { name: '원문' }).fill('수식 $\\frac{a+b}{c+d}$');
+
+  const overflows = await page.evaluate(
+    () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+  );
+  expect(overflows).toBe(false);
 });
